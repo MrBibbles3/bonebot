@@ -8,6 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
+const BOT_VERSION = "0.2";
 
 
 const client = new Client({
@@ -46,6 +47,10 @@ client.once('clientReady', async () => {
     // Post fresh shop
     await postShop(shopChannel);
 
+    // Update!
+    await shopChannel.send(`Update ${BOT_VERSION} is live!`);
+
+
     // Rotate every 45 minutes
     setInterval(async () => {
       await postShop(shopChannel);
@@ -73,16 +78,29 @@ client.login(process.env.TOKEN);
 const commands = [
   new SlashCommandBuilder()
     .setName('inventory')
-    .setDescription('View your card collection'),
-  
-    new SlashCommandBuilder()
-  .setName('daily')
-  .setDescription('Claim your daily Bones reward'),
+    .setDescription('View a card collection')
+    .addUserOption(option =>
+      option
+        .setName('user')
+        .setDescription('User to view')
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
+    .setName('daily')
+    .setDescription('Claim your daily Bones reward'),
 
   new SlashCommandBuilder()
     .setName('balance')
-    .setDescription('Check your Bone balance')
+    .setDescription('Check a Bone balance')
+    .addUserOption(option =>
+      option
+        .setName('user')
+        .setDescription('User to view')
+        .setRequired(false)
+    )
 ].map(command => command.toJSON());
+
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
@@ -509,13 +527,15 @@ return interaction.reply({
 
 
 
-    if (interaction.commandName === 'balance') {
+  if (interaction.commandName === 'balance') {
 
-  let user = await User.findOne({ userId: interaction.user.id });
+  const targetUser = interaction.options.getUser('user') || interaction.user;
+
+  let user = await User.findOne({ userId: targetUser.id });
 
   if (!user) {
     user = new User({
-      userId: interaction.user.id,
+      userId: targetUser.id,
       bones: 500,
       inventory: []
     });
@@ -525,23 +545,26 @@ return interaction.reply({
   const balanceEmbed = new EmbedBuilder()
     .setColor(0xE5C07B)
     .setTitle('🦴 Bone Balance 🦴')
-    .setDescription(`${interaction.user}, here is your current balance:`)
+    .setDescription(`${targetUser}'s balance:`)
     .addFields(
       { name: 'Bones', value: `\`${user.bones}\``, inline: true }
     )
-    .setFooter({ text: 'Keep chatting to earn more Bones!' })
     .setTimestamp();
 
   return interaction.reply({
     embeds: [balanceEmbed],
     flags: 64
   });
-  }
+}
+
 
 
     if (interaction.commandName === 'inventory') {
 
-      const user = await User.findOne({ userId: interaction.user.id });
+      const targetUser = interaction.options.getUser('user') || interaction.user;
+
+      const user = await User.findOne({ userId: targetUser.id });
+
 
       if (!user || user.inventory.length === 0) {
         return interaction.reply({
