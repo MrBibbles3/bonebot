@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.2";
+const BOT_VERSION = "0.3";
 
 
 const client = new Client({
@@ -77,14 +77,15 @@ client.login(process.env.TOKEN);
 //Enable Slash Commands
 const commands = [
   new SlashCommandBuilder()
-    .setName('inventory')
-    .setDescription('View a card collection')
-    .addUserOption(option =>
-      option
-        .setName('user')
-        .setDescription('User to view')
-        .setRequired(false)
-    ),
+  .setName('inventory')
+  .setDescription('View a card collection')
+  .addUserOption(option =>
+    option
+      .setName('user')
+      .setDescription('User to view')
+      .setRequired(false)
+  ),
+
 
   new SlashCommandBuilder()
     .setName('daily')
@@ -561,9 +562,11 @@ return interaction.reply({
 
     if (interaction.commandName === 'inventory') {
 
-      const targetUser = interaction.options.getUser('user') || interaction.user;
+      const targetUser = interaction.options.getUser('user') || interaction.user;//*********************** */
 
-      const user = await User.findOne({ userId: targetUser.id });
+      const target = interaction.options.getUser('user') || interaction.user;
+
+      const user = await User.findOne({ userId: target.id });
 
 
       if (!user || user.inventory.length === 0) {
@@ -575,41 +578,41 @@ return interaction.reply({
 
       const inventoryEmbed = new EmbedBuilder()
         .setColor(0x2B2D31)
-        .setTitle("📦 Your Card Collection")
+        .setTitle(`📦 ${target.username}'s Card Collection`)
         .setDescription("Select an option below:")
         .setTimestamp();
 
       const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`inv_list_${interaction.user.id}`)
+          .setCustomId(`inv_list_${target.id}_${interaction.user.id}`)
           .setLabel('List')
           .setEmoji('✅')
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-          .setCustomId(`inv_COMMON_${interaction.user.id}`)
+          .setCustomId(`inv_COMMON_${target.id}_${interaction.user.id}`)
           .setEmoji('🟩')
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-          .setCustomId(`inv_EPIC_${interaction.user.id}`)
+          .setCustomId(`inv_EPIC_${target.id}_${interaction.user.id}`)
           .setEmoji('🟪')
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-          .setCustomId(`inv_SECRET_${interaction.user.id}`)
+          .setCustomId(`inv_SECRET_${target.id}_${interaction.user.id}`)
           .setEmoji('🟥')
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-          .setCustomId(`inv_NIGHTMARE_${interaction.user.id}`)
+          .setCustomId(`inv_NIGHTMARE_${target.id}_${interaction.user.id}`)
           .setEmoji('⬛')
           .setStyle(ButtonStyle.Secondary)
       );
 
       const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`inv_APEX_${interaction.user.id}`)
+          .setCustomId(`inv_APEX_${target.id}_${interaction.user.id}`)
           .setEmoji('💠')
           .setStyle(ButtonStyle.Secondary)
       );
@@ -627,7 +630,9 @@ return interaction.reply({
   // =====================================================
   if (interaction.isButton()) {
 
-    // =============================
+
+
+// =============================
 // PAGINATION (ARROWS)
 // =============================
 if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsWith('inv_prev_')) {
@@ -638,14 +643,16 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
   const rarity = parts[2];
   const currentIndex = parseInt(parts[3]);
   const ownerId = parts[4];
+  const viewerId = parts[5];
 
-  if (interaction.user.id !== ownerId) {
+
+  if (interaction.user.id !== viewerId) {
     return interaction.reply({
       content: "This is not your inventory.",
       flags: 64
     });
   }
-  const user = await User.findOne({ userId: interaction.user.id });
+  const user = await User.findOne({ userId: ownerId });
 
   if (!user) {
     return interaction.reply({
@@ -689,17 +696,17 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`inv_prev_${rarity}_${newIndex}_${ownerId}`)
+      .setCustomId(`inv_prev_${rarity}_${newIndex}_${ownerId}_${viewerId}`)
       .setLabel('◀')
       .setStyle(ButtonStyle.Secondary),
 
     new ButtonBuilder()
-      .setCustomId(`inv_next_${rarity}_${newIndex}_${ownerId}`)
+      .setCustomId(`inv_next_${rarity}_${newIndex}_${ownerId}_${viewerId}`)
       .setLabel('▶')
       .setStyle(ButtonStyle.Secondary),
 
     new ButtonBuilder()
-      .setCustomId(`inv_menu_${ownerId}`)
+      .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
       .setLabel('Return')
       .setStyle(ButtonStyle.Danger)
   );
@@ -761,7 +768,19 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
     // -----------------------------------------------------
     if (interaction.customId.startsWith('inv_')) {
 
-      const user = await User.findOne({ userId: interaction.user.id });
+      const parts = interaction.customId.split('_');
+      const ownerId = parts[parts.length - 2];
+      const viewerId = parts[parts.length - 1];
+
+      if (interaction.user.id !== viewerId) {
+        return interaction.reply({
+          content: "This is not your inventory.",
+          flags: 64
+        });
+      }
+
+      const user = await User.findOne({ userId: ownerId });
+
 
       if (!user) {
         return interaction.reply({ content: "No inventory found.", flags: 64 });
@@ -770,7 +789,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
       const action = interaction.customId.replace('inv_', '');
 
       // LIST VIEW
-      if (action === `list_${interaction.user.id}`) {
+      if (action === `list_${ownerId}`) {
 
         const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
         const allCards = Object.values(cards).flat();
@@ -801,9 +820,10 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
           return interaction.reply({ content: "Inventory empty.", flags: 64 });
         }
 
+        const ownerUser = await client.users.fetch(ownerId);
         const listEmbed = new EmbedBuilder()
           .setColor(0x2B2D31)
-          .setTitle("📜 Your Cards")
+          .setTitle(`📜 ${ownerUser.username}'s Cards`)
           .setTimestamp();
 
         sortedInventory.forEach(card => {
@@ -817,7 +837,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
 
         const returnRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`inv_menu_${interaction.user.id}`)
+            .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
             .setLabel('Return')
             .setStyle(ButtonStyle.Danger)
         );
@@ -832,15 +852,17 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
 const rarityKeys = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
 
 for (const rarity of rarityKeys) {
-  if (action === `${rarity}_${interaction.user.id}`) {
+  if (action === `${rarity}_${ownerId}`) {
 
     const ownedCards = user.inventory.filter(invItem =>
       cards[rarity].some(c => c.id === invItem.itemId)
     );
 
     if (ownedCards.length === 0) {
-      return interaction.reply({
-        content: `You don't own any ${rarities[rarity].name} cards.`,
+      const ownerUser = await client.users.fetch(ownerId);
+      
+      return interaction.reply({        
+        content: `${ownerUser.username} doesn't own any cards yet.`,
         flags: 64
       });
     }
@@ -857,17 +879,17 @@ for (const rarity of rarityKeys) {
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`inv_prev_${rarity}_0_${interaction.user.id}`)
+        .setCustomId(`inv_prev_${rarity}_0_${ownerId}_${viewerId}`)
         .setLabel('◀')
         .setStyle(ButtonStyle.Secondary),
 
       new ButtonBuilder()
-        .setCustomId(`inv_next_${rarity}_0_${interaction.user.id}`)
+        .setCustomId(`inv_next_${rarity}_0_${ownerId}_${viewerId}`)
         .setLabel('▶')
         .setStyle(ButtonStyle.Secondary),
 
       new ButtonBuilder()
-        .setCustomId(`inv_menu_${interaction.user.id}`)
+        .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
         .setLabel('Return')
         .setStyle(ButtonStyle.Danger)
     );
@@ -881,45 +903,45 @@ for (const rarity of rarityKeys) {
 
 
       // RETURN TO MENU
-      if (action === `menu_${interaction.user.id}`) {
-
+      if (action === `menu_${ownerId}_${viewerId}`) {
+        const ownerUser = await client.users.fetch(ownerId);
         const inventoryEmbed = new EmbedBuilder()
           .setColor(0x2B2D31)
-          .setTitle("📦 Your Card Collection")
+          .setTitle(`📦 ${ownerUser.username}'s Card Collection`)
           .setDescription("Select an option below:")
           .setTimestamp();
 
         const row1 = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`inv_list_${interaction.user.id}`)
+            .setCustomId(`inv_list_${ownerId}_${viewerId}`)
             .setLabel('List')
             .setEmoji('✅')
             .setStyle(ButtonStyle.Secondary),
 
           new ButtonBuilder()
-            .setCustomId(`inv_COMMON_${interaction.user.id}`)
+            .setCustomId(`inv_COMMON_${ownerId}_${viewerId}`)
             .setEmoji('🟩')
             .setStyle(ButtonStyle.Secondary),
 
           new ButtonBuilder()
-            .setCustomId(`inv_EPIC_${interaction.user.id}`)
+            .setCustomId(`inv_EPIC_${ownerId}_${viewerId}`)
             .setEmoji('🟪')
             .setStyle(ButtonStyle.Secondary),
 
           new ButtonBuilder()
-            .setCustomId(`inv_SECRET_${interaction.user.id}`)
+            .setCustomId(`inv_SECRET_${ownerId}_${viewerId}`)
             .setEmoji('🟥')
             .setStyle(ButtonStyle.Secondary),
 
           new ButtonBuilder()
-            .setCustomId(`inv_NIGHTMARE_${interaction.user.id}`)
+            .setCustomId(`inv_NIGHTMARE_${ownerId}_${viewerId}`)
             .setEmoji('⬛')
             .setStyle(ButtonStyle.Secondary)
         );
 
         const row2 = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId(`inv_APEX_${interaction.user.id}`)
+            .setCustomId(`inv_APEX_${ownerId}_${viewerId}`)
             .setEmoji('💠')
             .setStyle(ButtonStyle.Secondary)
         );
