@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.3";
+const BOT_VERSION = "0.4";
 
 
 const client = new Client({
@@ -768,28 +768,29 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
     // -----------------------------------------------------
     if (interaction.customId.startsWith('inv_')) {
 
-      const parts = interaction.customId.split('_');
-      const ownerId = parts[parts.length - 2];
-      const viewerId = parts[parts.length - 1];
+  const parts = interaction.customId.split('_');
 
-      if (interaction.user.id !== viewerId) {
-        return interaction.reply({
-          content: "This is not your inventory.",
-          flags: 64
-        });
-      }
+  const action = parts[1];      // list / COMMON / EPIC etc
+  const ownerId = parts[2];
+  const viewerId = parts[3];
 
-      const user = await User.findOne({ userId: ownerId });
+  if (interaction.user.id !== viewerId) {
+    return interaction.reply({
+      content: "This is not your inventory.",
+      flags: 64
+    });
+  }
 
+  const user = await User.findOne({ userId: ownerId });
 
-      if (!user) {
-        return interaction.reply({ content: "No inventory found.", flags: 64 });
-      }
+  if (!user) {
+    return interaction.reply({ content: "No inventory found.", flags: 64 });
+  }
 
       const action = interaction.customId.replace('inv_', '');
 
       // LIST VIEW
-      if (action === `list_${ownerId}`) {
+     if (action === 'list') {
 
         const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
         const allCards = Object.values(cards).flat();
@@ -852,7 +853,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
 const rarityKeys = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
 
 for (const rarity of rarityKeys) {
-  if (action === `${rarity}_${ownerId}`) {
+  if (action === rarity) {
 
     const ownedCards = user.inventory.filter(invItem =>
       cards[rarity].some(c => c.id === invItem.itemId)
@@ -903,7 +904,7 @@ for (const rarity of rarityKeys) {
 
 
       // RETURN TO MENU
-      if (action === `menu_${ownerId}_${viewerId}`) {
+      if (action === 'menu') {
         const ownerUser = await client.users.fetch(ownerId);
         const inventoryEmbed = new EmbedBuilder()
           .setColor(0x2B2D31)
