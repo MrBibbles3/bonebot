@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.8";
+const BOT_VERSION = "0.9";
 
 
 const client = new Client({
@@ -990,11 +990,15 @@ for (const rarity of rarityKeys) {
     const cardData = cards[rarity].find(c => c.id === firstCardId);
 
     const embed = new EmbedBuilder()
-      .setColor(rarities[rarity].color)
-      .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
-      .setDescription(`**${cardData.name}**\nID: \`${cardData.id}\``)
-      .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
-      .setFooter({ text: "Page 1" });
+    .setColor(rarities[rarity].color)
+    .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
+    .setDescription(
+      `**${cardData.name}**\n` +
+      `ID: \`${cardData.id}\`\n` +
+      `Qty: \`${ownedCards[0].quantity}\``
+    )
+    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
+    .setFooter({ text: `Page 1 of ${ownedCards.length}` });
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
