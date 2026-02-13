@@ -12,6 +12,8 @@ const cards = {
             price: 100,
             rarity: 'common'            
         }
+    ,
+        
     ],
 
     EPIC: [
@@ -33,12 +35,7 @@ const cards = {
     ],
 
     NIGHTMARE: [
-        {
-            id: 'N1',
-            name: 'Suki The Forg',
-            price: 3000,
-            rarity: 'nightmare'            
-        }
+        
     ],
 
     APEX: [
@@ -48,6 +45,17 @@ const cards = {
             price: 10000,
             rarity: 'apex'            
         }
+    ,
+        {
+            id: 'A3',
+            name: 'RangaWrath',
+            price: 10000,
+            rarity: 'apex'            
+        }
+    ,
+        
+    ,
+        
     ]
 };
 

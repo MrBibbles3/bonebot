@@ -12,6 +12,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "canvas": "^3.2.1",
     "discord.js": "^14.25.1",
     "mongodb": "4.1",
     "mongoose": "^9.2.0"
