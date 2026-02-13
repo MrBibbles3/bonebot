@@ -35,6 +35,14 @@ const cards = {
     ],
 
     NIGHTMARE: [
+
+        {
+            id: 'N1',
+            name: 'Suki The Forg',
+            price: 3000,
+            rarity: 'nightmare'            
+        }
+    
         
     ],
 
