@@ -291,7 +291,106 @@ function generateShop() {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  
+  // ----------------------
+  // GIVE CARD COMMAND
+  // ----------------------
+  if (message.content.startsWith('!givecard')) {
+
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission to use this command.");
+    }
+
+    const args = message.content.split(' ');
+
+    const target = message.mentions.users.first();
+    const cardId = args[2];
+    const amount = parseInt(args[3]) || 1;
+
+    if (!target || !cardId || amount <= 0) {
+      return message.reply("Usage: !givecard @user CARD_ID [amount]");
+    }
+
+    // Find card in your card pool
+    const allCards = Object.values(cards).flat();
+    const card = allCards.find(c => c.id === cardId);
+
+    if (!card) {
+      return message.reply("Invalid Card ID.");
+    }
+
+    let user = await User.findOne({ userId: target.id });
+
+    if (!user) {
+      user = new User({
+        userId: target.id,
+        bones: 0,
+        inventory: []
+      });
+    }
+
+    const existingCard = user.inventory.find(i => i.itemId === card.id);
+
+    if (existingCard) {
+      existingCard.quantity += amount;
+    } else {
+      user.inventory.push({
+        itemId: card.id,
+        quantity: amount
+      });
+    }
+
+    await user.save();
+
+    return message.channel.send(
+      `Gave \`${amount}\`x **${card.name}** to ${target}.`
+    );
+  }
+
+  // ----------------------
+  // REMOVE CARD COMMAND
+  // ----------------------
+  if (message.content.startsWith('!removecard')) {
+
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission to use this command.");
+    }
+
+    const args = message.content.split(' ');
+
+    const target = message.mentions.users.first();
+    const cardId = args[2];
+    const amount = parseInt(args[3]) || 1;
+
+    if (!target || !cardId || amount <= 0) {
+      return message.reply("Usage: !removecard @user CARD_ID [amount]");
+    }
+
+    let user = await User.findOne({ userId: target.id });
+
+    if (!user) {
+      return message.reply("That user has no inventory.");
+    }
+
+    const existingCard = user.inventory.find(i => i.itemId === cardId);
+
+    if (!existingCard) {
+      return message.reply("That user does not own this card.");
+    }
+
+    existingCard.quantity -= amount;
+
+    if (existingCard.quantity <= 0) {
+      user.inventory = user.inventory.filter(i => i.itemId !== cardId);
+    }
+
+    await user.save();
+
+    return message.channel.send(
+      `Removed \`${amount}\`x card \`${cardId}\` from ${target}.`
+    );
+  }
+
+
   // ----------------------
   // Bones Command
   // ----------------------
