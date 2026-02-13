@@ -14,6 +14,13 @@ const cards = {
         }
     ,
         
+    ,
+        {
+            id: 'C3',
+            name: 'GillRunt',
+            price: 69,
+            rarity: 'common'            
+        }
     ],
 
     EPIC: [
