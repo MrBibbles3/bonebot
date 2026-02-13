@@ -787,7 +787,6 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
     return interaction.reply({ content: "No inventory found.", flags: 64 });
   }
 
-      const action = interaction.customId.replace('inv_', '');
 
       // LIST VIEW
      if (action === 'list') {
