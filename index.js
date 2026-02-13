@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.4";
+const BOT_VERSION = "0.5";
 
 
 const client = new Client({
@@ -570,11 +570,14 @@ return interaction.reply({
 
 
       if (!user || user.inventory.length === 0) {
+        const ownerUser = await client.users.fetch(target.id);
+
         return interaction.reply({
-          content: "You don't own any cards yet.",
+          content: `${ownerUser.username} doesn't own any cards yet.`,
           flags: 64
         });
       }
+
 
       const inventoryEmbed = new EmbedBuilder()
         .setColor(0x2B2D31)
@@ -848,7 +851,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
         });
       }
 
-      // RARITY VIEW
+// RARITY VIEW
 const rarityKeys = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
 
 for (const rarity of rarityKeys) {
@@ -859,13 +862,30 @@ for (const rarity of rarityKeys) {
     );
 
     if (ownedCards.length === 0) {
+
       const ownerUser = await client.users.fetch(ownerId);
-      
-      return interaction.reply({        
-        content: `${ownerUser.username} doesn't own any cards yet.`,
-        flags: 64
+
+      const emptyEmbed = new EmbedBuilder()
+        .setColor(0x2B2D31)
+        .setTitle(`📦 ${ownerUser.username}'s Card Collection`)
+        .setDescription(
+          `❌ ${ownerUser.username} doesn't own any ${rarities[rarity].name} cards.`
+        )
+        .setTimestamp();
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
+          .setLabel('Return')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      return interaction.update({
+        embeds: [emptyEmbed],
+        components: [row]
       });
     }
+
 
     const firstCardId = ownedCards[0].itemId;
     const cardData = cards[rarity].find(c => c.id === firstCardId);
