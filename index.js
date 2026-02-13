@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.11";
+const BOT_VERSION = "0.12";
 
 
 const client = new Client({
@@ -997,7 +997,7 @@ for (const rarity of rarityKeys) {
       `ID: \`${cardData.id}\`\n` +
       `Qty: \`${ownedCards[0].quantity}\``
     )
-    .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
+    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
     .setFooter({ text: `Page 1 of ${ownedCards.length}` });
 
     const row = new ActionRowBuilder().addComponents(
