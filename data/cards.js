@@ -6,7 +6,6 @@ const cards = {
             price: 100,
             rarity: 'common'            
         }
-    ,
         
     ,
         {
