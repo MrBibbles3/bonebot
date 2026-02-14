@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.21.2";
+const BOT_VERSION = "0.22";
 const IMAGE_COMMIT = "957ea0f"; // replace with newest git log --oneline
 
 
@@ -769,6 +769,12 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
     cards[rarity].some(c => c.id === invItem.itemId)
   );
 
+  ownedCards.sort((a, b) => {
+    const numA = parseInt(a.itemId.replace(/^\D+/g, ''));
+    const numB = parseInt(b.itemId.replace(/^\D+/g, ''));
+    return numA - numB;
+  });
+
   if (ownedCards.length === 0) {
     return interaction.reply({
       content: "No cards found.",
@@ -973,6 +979,13 @@ for (const rarity of rarityKeys) {
     const ownedCards = user.inventory.filter(invItem =>
       cards[rarity].some(c => c.id === invItem.itemId)
     );
+
+    ownedCards.sort((a, b) => {
+      const numA = parseInt(a.itemId.replace(/^\D+/g, ''));
+      const numB = parseInt(b.itemId.replace(/^\D+/g, ''));
+      return numA - numB;
+    });
+
 
     if (ownedCards.length === 0) {
 
