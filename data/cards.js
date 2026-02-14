@@ -21,6 +21,13 @@ const cards = {
             price: 69,
             rarity: 'common'            
         }
+    ,
+        {
+            id: 'C4',
+            name: 'Human Bibbles',
+            price: 100,
+            rarity: 'common'            
+        }
     ],
 
     EPIC: [
