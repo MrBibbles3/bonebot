@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.14";
+const BOT_VERSION = "0.15";
 
 
 const client = new Client({
@@ -184,7 +184,7 @@ async function postShop(channel) {
         `**Price:** \`${card.price} Bones\`\n` +
         `**Card ID:** \`${card.id}\``
       )
-      .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${card.id}.png`)
+      .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${card.id}.png?update=${Date.now()}`)
       .setFooter({ text: "Click Buy to purchase" });
 
     const row = new ActionRowBuilder().addComponents(
@@ -492,7 +492,7 @@ if (message.content.startsWith('!removebones')) {
           `**Price:** \`${card.price} Bones\`\n` +
           `**Card ID:** \`${card.id}\``
         )
-        .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${card.id}.png`)
+        .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${card.id}.png?update=${Date.now()}`)
         .setFooter({ text: "Click Buy to purchase" });
 
 
@@ -793,7 +793,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
     .setColor(rarities[rarity].color)
     .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
     .setDescription(`**${cardData.name}**\nID: \`${cardData.id}\`\nQty: \`${ownedCards[newIndex].quantity}\``)
-    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
+    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png?update=${Date.now()}`)
     .setFooter({ text: `Page ${newIndex + 1} of ${ownedCards.length}` });
 
   const row = new ActionRowBuilder().addComponents(
@@ -997,7 +997,7 @@ for (const rarity of rarityKeys) {
       `ID: \`${cardData.id}\`\n` +
       `Qty: \`${ownedCards[0].quantity}\``
     )
-    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
+    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png?update=${Date.now()}`)
     .setFooter({ text: `Page 1 of ${ownedCards.length}` });
 
     const row = new ActionRowBuilder().addComponents(
