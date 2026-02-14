@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.23";
+const BOT_VERSION = "0.24";
 const IMAGE_COMMIT = "957ea0f"; // replace with newest git log --oneline
 
 
@@ -176,7 +176,7 @@ async function postShop(channel) {
   // Send cards
   for (const card of shopItems) {
 
-    const rarityData = rarities[card.rarity];
+    const rarityData = rarities[card.rarity.toUpperCase()];
 
     const cardEmbed = new EmbedBuilder()
       .setColor(rarityData.color)
@@ -484,7 +484,7 @@ if (message.content.startsWith('!removebones')) {
     // Send each card as its own embed
     for (const card of shopItems) {
 
-      const rarityData = rarities[card.rarity];
+      const rarityData = rarities[card.rarity.toUpperCase()];
 
       const cardEmbed = new EmbedBuilder()
         .setColor(rarityData.color)
@@ -870,7 +870,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
       await user.save();
 
       const purchaseEmbed = new EmbedBuilder()
-        .setColor(rarities[card.rarity].color)
+        .setColor(rarities[card.rarity.toUpperCase()].color)
         .setTitle("🛒 Purchase Successful!")
         .setDescription(
           `You bought **${card.name}** for \`${card.price}\` Bones.\n\n` +
@@ -962,7 +962,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
           .setTimestamp();
 
         sortedInventory.forEach(card => {
-          const rarityEmoji = rarities[card.rarity].emoji;
+          const rarityEmoji = rarities[card.rarity.toUpperCase()].emoji;
           listEmbed.addFields({
             name: `${rarityEmoji} ${card.name}`,
             value: `ID: \`${card.id}\` • Qty: \`${card.quantity}\``,
