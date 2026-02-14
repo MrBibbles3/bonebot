@@ -8,7 +8,9 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.20";
+const BOT_VERSION = "0.21";
+const IMAGE_COMMIT = "7af2ecf"; // replace with newest git log --oneline
+
 
 
 const client = new Client({
@@ -184,7 +186,7 @@ async function postShop(channel) {
         `**Price:** \`${card.price} Bones\`\n` +
         `**Card ID:** \`${card.id}\``
       )
-      .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${card.id}.png?v=${BOT_VERSION}`)
+      .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${card.id}.png?v=${BOT_VERSION}`)
       .setFooter({ text: "Click Buy to purchase" });
 
     const row = new ActionRowBuilder().addComponents(
@@ -492,7 +494,7 @@ if (message.content.startsWith('!removebones')) {
           `**Price:** \`${card.price} Bones\`\n` +
           `**Card ID:** \`${card.id}\``
         )
-        .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${card.id}.png?v=${BOT_VERSION}`)
+        .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${card.id}.png?v=${BOT_VERSION}`)
         .setFooter({ text: "Click Buy to purchase" });
 
 
@@ -793,7 +795,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
     .setColor(rarities[rarity].color)
     .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
     .setDescription(`**${cardData.name}**\nID: \`${cardData.id}\`\nQty: \`${ownedCards[newIndex].quantity}\``)
-    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png?v=${BOT_VERSION}`)
+    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${cardData.id}.png?v=${BOT_VERSION}`)
     .setFooter({ text: `Page ${newIndex + 1} of ${ownedCards.length}` });
 
   const row = new ActionRowBuilder().addComponents(
@@ -916,7 +918,19 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
             };
           })
           .filter(Boolean)
-          .sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
+          .sort((a, b) => {
+            const rarityCompare =
+              rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
+
+            if (rarityCompare !== 0) return rarityCompare;
+
+            // Same rarity → sort by numeric ID
+            const aNum = parseInt(a.id.replace(/^\D+/g, ''));
+            const bNum = parseInt(b.id.replace(/^\D+/g, ''));
+
+            return aNum - bNum;
+          });
+
 
         if (sortedInventory.length === 0) {
           return interaction.reply({ content: "Inventory empty.", flags: 64 });
@@ -997,7 +1011,7 @@ for (const rarity of rarityKeys) {
       `ID: \`${cardData.id}\`\n` +
       `Qty: \`${ownedCards[0].quantity}\``
     )
-    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png?v=${BOT_VERSION}`)
+    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${cardData.id}.png?v=${BOT_VERSION}`)
     .setFooter({ text: `Page 1 of ${ownedCards.length}` });
 
     const row = new ActionRowBuilder().addComponents(
