@@ -9,7 +9,7 @@ let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
 const BOT_VERSION = "0.21.1";
-const IMAGE_COMMIT = "787c4c1"; // replace with newest git log --oneline
+const IMAGE_COMMIT = "f6fe349"; // replace with newest git log --oneline
 
 
 
