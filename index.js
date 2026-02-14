@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.22";
+const BOT_VERSION = "0.23";
 const IMAGE_COMMIT = "957ea0f"; // replace with newest git log --oneline
 
 
@@ -575,55 +575,57 @@ client.on('interactionCreate', async interaction => {
   }
 
   const now = new Date();
-const cooldown = 16 * 60 * 60 * 1000; // 16 hours
-const streakWindow = 24 * 60 * 60 * 1000; // 24h to maintain streak
-const maxStreak = 7;
+  const cooldown = 16 * 60 * 60 * 1000; // 16 hours
+  const streakWindow = 24 * 60 * 60 * 1000; // 24h to maintain streak
+  const maxStreak = 7;
 
-if (user.dailyLastClaim) {
-  const timePassed = now - user.dailyLastClaim;
+  if (user.dailyLastClaim) {
+    const timePassed = now - user.dailyLastClaim;
 
-  // Still on cooldown
-  if (timePassed < cooldown) {
-    const timeLeft = cooldown - timePassed;
+    // Still on cooldown
+    if (timePassed < cooldown) {
+      const timeLeft = cooldown - timePassed;
 
-    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
 
-    return interaction.reply({
-      content: `You already claimed your daily reward.\nCome back in ${hours}h ${minutes}m.`,
-      flags: 64
-    });
+      return interaction.reply({
+        content: `You already claimed your daily reward.\nCome back in ${hours}h ${minutes}m.`,
+        flags: 64
+      });
+    }
+
+    // Missed streak window
+    if (timePassed > streakWindow) {
+      user.dailyStreak = 0;
+    }
   }
 
-  // Missed streak window
-  if (timePassed > streakWindow) {
-    user.dailyStreak = 0;
+  // Increase streak but cap at 7
+  if (user.dailyStreak < maxStreak) {
+    user.dailyStreak += 1;
   }
-}
 
-// Increase streak but cap at 7
-if (user.dailyStreak < maxStreak) {
-  user.dailyStreak += 1;
-}
+  const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
+  const streakBonus = user.dailyStreak * 10;
+  const totalReward = baseReward + streakBonus;
 
-const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
-const streakBonus = user.dailyStreak * 10;
-const totalReward = baseReward + streakBonus;
+  user.bones += totalReward;
+  user.dailyLastClaim = now;
 
-user.bones += totalReward;
-user.dailyLastClaim = now;
+  await user.save();
 
-await user.save();
+  return interaction.reply({
+    content:
+      `🦴 **Daily Claimed!**\n\n` +
+      `Base: \`${baseReward}\`\n` +
+      `Streak Bonus: \`${streakBonus}\`\n` +
+      `Total Earned: \`${totalReward}\`\n\n` +
+      `🔥 Current Streak: ${user.dailyStreak}/7\n\n` +
+      `💰 **New Balance:** \`${user.bones}\``,
+    flags: 64
+  });
 
-return interaction.reply({
-  content:
-    `🦴 Daily claimed!\n\n` +
-    `Base: \`${baseReward}\`\n` +
-    `Streak Bonus: \`${streakBonus}\`\n` +
-    `Total: \`${totalReward}\`\n\n` +
-    `🔥 Current Streak: ${user.dailyStreak}/7`,
-  flags: 64
-});
 
 }
 
@@ -867,10 +869,21 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
 
       await user.save();
 
+      const purchaseEmbed = new EmbedBuilder()
+        .setColor(rarities[card.rarity].color)
+        .setTitle("🛒 Purchase Successful!")
+        .setDescription(
+          `You bought **${card.name}** for \`${card.price}\` Bones.\n\n` +
+          `🦴 **Remaining Balance:** \`${user.bones}\``
+        )
+        .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${card.id}.png?v=${BOT_VERSION}`)
+        .setTimestamp();
+
       return interaction.reply({
-        content: `You successfully purchased **${card.name}** for ${card.price} Bones!`,
+        embeds: [purchaseEmbed],
         flags: 64
       });
+
     }
 
     // -----------------------------------------------------
