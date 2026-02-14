@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.13";
+const BOT_VERSION = "0.14";
 
 
 const client = new Client({
@@ -793,7 +793,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
     .setColor(rarities[rarity].color)
     .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
     .setDescription(`**${cardData.name}**\nID: \`${cardData.id}\`\nQty: \`${ownedCards[newIndex].quantity}\``)
-    .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
+    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@main/images/${cardData.id}.png`)
     .setFooter({ text: `Page ${newIndex + 1} of ${ownedCards.length}` });
 
   const row = new ActionRowBuilder().addComponents(
