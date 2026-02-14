@@ -1,12 +1,19 @@
 const cards = {
     COMMON: [
         {
-            id: 'C2',
-            name: 'ERMman',
+            id: 'C1',
+            name: 'FakeArin',
             price: 100,
             rarity: 'common'            
         }
         
+    ,
+        {
+            id: 'C2',
+            name: 'ERMman',
+            price: 100,
+            rarity: 'common'            
+        }   
     ,
         {
             id: 'C3',
