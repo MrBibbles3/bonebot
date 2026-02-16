@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.25";
+const BOT_VERSION = "0.26";
 const IMAGE_COMMIT = "957ea0f"; // replace with newest git log --oneline
 
 
@@ -736,6 +736,105 @@ client.on('interactionCreate', async interaction => {
   // =====================================================
   if (interaction.isButton()) {
 
+    // =============================
+// LIST PAGINATION
+// =============================
+if (interaction.customId.startsWith('inv_list_prev_') ||
+    interaction.customId.startsWith('inv_list_next_')) {
+
+  const parts = interaction.customId.split('_');
+
+  const direction = parts[2]; // prev or next
+  let currentPage = parseInt(parts[3]);
+  const ownerId = parts[4];
+  const viewerId = parts[5];
+
+  if (interaction.user.id !== viewerId) {
+    return interaction.reply({
+      content: "This is not your inventory.",
+      flags: 64
+    });
+  }
+
+  const user = await User.findOne({ userId: ownerId });
+  if (!user) return;
+
+  const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
+  const allCards = Object.values(cards).flat();
+
+  const sortedInventory = user.inventory
+    .map(invItem => {
+      const cardData = allCards.find(c => c.id === invItem.itemId);
+      if (!cardData) return null;
+
+      let rarityKey = null;
+      for (const key of Object.keys(cards)) {
+        if (cards[key].some(c => c.id === invItem.itemId)) {
+          rarityKey = key;
+          break;
+        }
+      }
+
+      return {
+        ...cardData,
+        quantity: invItem.quantity,
+        rarity: rarityKey
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
+
+  const perPage = 10;
+  const totalPages = Math.ceil(sortedInventory.length / perPage);
+
+  if (direction === 'next') currentPage++;
+  if (direction === 'prev') currentPage--;
+
+  if (currentPage < 0) currentPage = totalPages - 1;
+  if (currentPage >= totalPages) currentPage = 0;
+
+  const start = currentPage * perPage;
+  const end = start + perPage;
+  const pageItems = sortedInventory.slice(start, end);
+
+  const ownerUser = await client.users.fetch(ownerId);
+
+  const embed = new EmbedBuilder()
+    .setColor(0x2B2D31)
+    .setTitle(`📜 ${ownerUser.username}'s Cards`)
+    .setFooter({ text: `Page ${currentPage + 1} of ${totalPages}` });
+
+  pageItems.forEach(card => {
+    const rarityEmoji = rarities[card.rarity].emoji;
+    embed.addFields({
+      name: `${rarityEmoji} ${card.name}`,
+      value: `ID: \`${card.id}\` • Qty: \`${card.quantity}\``,
+      inline: false
+    });
+  });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`inv_list_prev_${currentPage}_${ownerId}_${viewerId}`)
+      .setLabel('◀')
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`inv_list_next_${currentPage}_${ownerId}_${viewerId}`)
+      .setLabel('▶')
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
+      .setLabel('Return')
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return interaction.update({
+    embeds: [embed],
+    components: [row]
+  });
+}
 
 
 // =============================
@@ -912,76 +1011,88 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
 
 
       // LIST VIEW
-     if (action === 'list') {
+    if (action.startsWith('list_')) {
 
-        const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
-        const allCards = Object.values(cards).flat();
+  const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
+  const allCards = Object.values(cards).flat();
 
-        const sortedInventory = user.inventory
-          .map(invItem => {
-            const cardData = allCards.find(c => c.id === invItem.itemId);
-            if (!cardData) return null;
+  const sortedInventory = user.inventory
+    .map(invItem => {
+      const cardData = allCards.find(c => c.id === invItem.itemId);
+      if (!cardData) return null;
 
-            let rarityKey = null;
-            for (const key of Object.keys(cards)) {
-              if (cards[key].some(c => c.id === invItem.itemId)) {
-                rarityKey = key;
-                break;
-              }
-            }
-
-            return {
-              ...cardData,
-              quantity: invItem.quantity,
-              rarity: rarityKey
-            };
-          })
-          .filter(Boolean)
-          .sort((a, b) => {
-            const rarityCompare =
-              rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
-
-            if (rarityCompare !== 0) return rarityCompare;
-
-            // Same rarity → sort by numeric ID
-            const aNum = parseInt(a.id.replace(/^\D+/g, ''));
-            const bNum = parseInt(b.id.replace(/^\D+/g, ''));
-
-            return aNum - bNum;
-          });
-
-
-        if (sortedInventory.length === 0) {
-          return interaction.reply({ content: "Inventory empty.", flags: 64 });
+      let rarityKey = null;
+      for (const key of Object.keys(cards)) {
+        if (cards[key].some(c => c.id === invItem.itemId)) {
+          rarityKey = key;
+          break;
         }
-
-        const ownerUser = await client.users.fetch(ownerId);
-        const listEmbed = new EmbedBuilder()
-          .setColor(0x2B2D31)
-          .setTitle(`📜 ${ownerUser.username}'s Cards`)
-          .setTimestamp();
-
-        sortedInventory.forEach(card => {
-          const rarityEmoji = rarities[card.rarity.toUpperCase()].emoji;
-          listEmbed.addFields({
-            name: `${rarityEmoji} ${card.name}`,
-            value: `ID: \`${card.id}\` • Qty: \`${card.quantity}\``,
-            inline: false
-          });
-        });
-
-        const returnRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
-            .setLabel('Return')
-            .setStyle(ButtonStyle.Danger)
-        );
-
-        return interaction.update({
-          embeds: [listEmbed],
-          components: [returnRow]
-        });
       }
+
+      return {
+        ...cardData,
+        quantity: invItem.quantity,
+        rarity: rarityKey
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
+
+  if (sortedInventory.length === 0) {
+    return interaction.update({
+      content: "Inventory empty.",
+      embeds: [],
+      components: []
+    });
+  }
+
+  const page = 0;
+  const perPage = 10;
+  const totalPages = Math.ceil(sortedInventory.length / perPage);
+
+  const start = page * perPage;
+  const end = start + perPage;
+  const pageItems = sortedInventory.slice(start, end);
+
+  const ownerUser = await client.users.fetch(ownerId);
+
+  const listEmbed = new EmbedBuilder()
+    .setColor(0x2B2D31)
+    .setTitle(`📜 ${ownerUser.username}'s Cards`)
+    .setFooter({ text: `Page ${page + 1} of ${totalPages}` });
+
+  pageItems.forEach(card => {
+    const rarityEmoji = rarities[card.rarity].emoji;
+    listEmbed.addFields({
+      name: `${rarityEmoji} ${card.name}`,
+      value: `ID: \`${card.id}\` • Qty: \`${card.quantity}\``,
+      inline: false
+    });
+  });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`inv_list_prev_0_${ownerId}_${viewerId}`)
+      .setLabel('◀')
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`inv_list_next_0_${ownerId}_${viewerId}`)
+      .setLabel('▶')
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
+      .setLabel('Return')
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return interaction.update({
+    embeds: [listEmbed],
+    components: [row]
+  });
+}
+
 
 // RARITY VIEW
 const rarityKeys = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
