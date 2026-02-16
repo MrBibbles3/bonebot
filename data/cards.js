@@ -206,11 +206,7 @@ const cards = {
             name: 'RangaWrath',
             price: 10000,
             rarity: 'apex'            
-        }
-    ,
-        
-    ,
-        
+        }        
     ]
 };
 
