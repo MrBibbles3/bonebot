@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.26.0";
+const BOT_VERSION = "0.27";
 const IMAGE_COMMIT = "957ea0f"; // replace with newest git log --oneline
 
 
@@ -473,7 +473,11 @@ if (message.content.startsWith('!removebones')) {
   // ----------------------
 
   if (message.content.toLowerCase() === '!shop') {
-
+      
+    // Admin only
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission to use this command.");
+    }
     const shopItems = generateShop();
 
     // Header Message
