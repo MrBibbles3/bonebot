@@ -450,6 +450,13 @@ module.exports = {
       "price": 3000,
       "rarity": "NIGHTMARE"
     }
+    ,
+    {
+      "id": "N13",
+      "name": "Crash",
+      "price": 3000,
+      "rarity": "NIGHTMARE"
+    }
   ],
   "APEX": [
     {
