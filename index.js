@@ -8,8 +8,8 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "0.29";
-const IMAGE_COMMIT = "957ea0f"; // replace with newest git log --oneline
+const BOT_VERSION = "1.0";
+const IMAGE_COMMIT = "88c47d3"; // replace with newest git log --oneline
 
 
 
