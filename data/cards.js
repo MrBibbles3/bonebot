@@ -111,6 +111,34 @@ module.exports = {
       "price": 300,
       "rarity": "COMMON"
     }
+    ,
+    {
+      "id": "C17",
+      "name": "Terrified Witness",
+      "price": 300,
+      "rarity": "COMMON"
+    }
+    ,
+    {
+      "id": "C18",
+      "name": "Porple",
+      "price": 300,
+      "rarity": "COMMON"
+    }
+    ,
+    {
+      "id": "C19",
+      "name": "Ajubuh",
+      "price": 300,
+      "rarity": "COMMON"
+    }    
+    ,
+    {
+      "id": "C20",
+      "name": "Suki's Uncle",
+      "price": 300,
+      "rarity": "COMMON"
+    }
   ],
   "EPIC": [
     {
@@ -231,6 +259,13 @@ module.exports = {
       "price": 500,
       "rarity": "EPIC"
     }
+    ,
+    {
+      "id": "E18",
+      "name": "We're Live",
+      "price": 500,
+      "rarity": "EPIC"
+    }    
   ],
   "SECRET": [
     {
@@ -365,6 +400,13 @@ module.exports = {
       "price": 1000,
       "rarity": "SECRET"
     }
+    ,
+    {
+      "id": "S21",
+      "name": "Revenge",
+      "price": 1000,
+      "rarity": "SECRET"
+    }    
   ],
   "NIGHTMARE": [
     {
