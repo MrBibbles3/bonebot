@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.0";
+const BOT_VERSION = "1.01";
 const IMAGE_COMMIT = "bdef1e2"; // replace with newest git log --oneline
 
 
@@ -53,10 +53,10 @@ client.once('clientReady', async () => {
     await shopChannel.send(`Update ${BOT_VERSION} is live!`);
 
 
-    // Rotate every 45 minutes
+    // Rotate every 60 minutes
     setInterval(async () => {
       await postShop(shopChannel);
-    }, 45 * 60 * 1000);
+    }, 60 * 60 * 1000);
 
   } catch (err) {
     console.error("Shop boot error:", err);
@@ -166,7 +166,7 @@ async function postShop(channel) {
 
   const shopItems = generateShop();
 
-  shopEndTime = Date.now() + (45 * 60 * 1000); // 45 minutes
+  shopEndTime = Date.now() + (60 * 60 * 1000); // 60 minutes
 
   // Send header
   shopHeaderMessage = await channel.send("Loading shop...");

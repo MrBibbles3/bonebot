@@ -2,7 +2,7 @@ module.exports = {
   "COMMON": [
     {
       "id": "C1",
-      "name": "FakeArin",
+      "name": "Who am I",
       "price": 100,
       "rarity": "COMMON"
     }
@@ -450,25 +450,32 @@ module.exports = {
       "price": 3000,
       "rarity": "NIGHTMARE"
     }
-    ,
+    , 
     {
       "id": "N13",
       "name": "Crash",
       "price": 3000,
       "rarity": "NIGHTMARE"
     }
+    ,
+    {
+      "id": "N14",
+      "name": "RangaWrath",
+      "price": 3000,
+      "rarity": "NIGHTMARE"
+    }
   ],
   "APEX": [
     {
-      "id": "A2",
-      "name": "KevTsuboi",
+      "id": "A1",
+      "name": "MrBibbles",
       "price": 10000,
       "rarity": "APEX"
     }
     ,
     {
-      "id": "A3",
-      "name": "RangaWrath",
+      "id": "A2",
+      "name": "KevTsuboi",
       "price": 10000,
       "rarity": "APEX"
     }
