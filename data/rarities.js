@@ -1,7 +1,7 @@
 const rarities = {
   COMMON: {
     name: "Common",
-    color: 0x9CA3AF,
+    color: 0x40f823,
     emoji: "🟩"
   },
   EPIC: {
