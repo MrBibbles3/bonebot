@@ -339,6 +339,13 @@ module.exports = {
     }
     ,
     {
+      "id": "S11",
+      "name": "Suki's Debit Card",
+      "price": 1000,
+      "rarity": "SECRET"
+    }
+    ,
+    {
       "id": "S12",
       "name": "Endo Bibbles",
       "price": 1000,
@@ -503,6 +510,13 @@ module.exports = {
     {
       "id": "N14",
       "name": "RangaWrath",
+      "price": 3000,
+      "rarity": "NIGHTMARE"
+    }
+    ,
+    {
+      "id": "N15",
+      "name": "Shiny Coffee Glazer",
       "price": 3000,
       "rarity": "NIGHTMARE"
     }
