@@ -8,9 +8,9 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.05";
+const BOT_VERSION = "1.1";
 const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
-
+const ALLOWED_CHANNEL_ID = '1471356531009130701';
 
 
 const client = new Client({
@@ -41,7 +41,7 @@ client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   try {
-    const shopChannel = await client.channels.fetch('1471357861526241350');
+    const shopChannel = await client.channels.fetch('1471356398989480103');
 
     // 🔥 Clear entire channel first
     await clearShopChannel(shopChannel);
@@ -560,6 +560,14 @@ if (message.content.startsWith('!removebones')) {
 
 client.on('interactionCreate', async interaction => {
 
+  // Only allow interactions in one channel
+  if (interaction.channelId !== ALLOWED_CHANNEL_ID) {
+    return interaction.reply({
+      content: "🦴 Use Bone Bot in the designated channel.",
+      flags: 64
+    });
+  }
+
   // =====================================================
   // SLASH COMMANDS
   // =====================================================
@@ -611,7 +619,7 @@ client.on('interactionCreate', async interaction => {
   }
 
   const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
-  const streakBonus = user.dailyStreak * 10;
+  const streakBonus = user.dailyStreak * 30;
   const totalReward = baseReward + streakBonus;
 
   user.bones += totalReward;

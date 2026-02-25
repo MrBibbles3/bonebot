@@ -17,7 +17,7 @@ module.exports = {
     {
       "id": "C3",
       "name": "GillRunt",
-      "price": 69,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
@@ -31,112 +31,112 @@ module.exports = {
     {
       "id": "C5",
       "name": "Keyboard Spam",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C6",
       "name": "Chair",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C7",
       "name": "Baby Bibble",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C8",
       "name": "PNG Bibbles",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C9",
       "name": "Blocky Bibbles",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C10",
       "name": "New Year's Lollie",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C11",
       "name": "...cat",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C12",
       "name": "(It's Bibbles)",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C13",
       "name": "DefinitlyGoat_Boy",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C14",
       "name": "O.M.B.",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C15",
       "name": "Pizzah",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C16",
       "name": "6400 Raw Salmon",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C17",
       "name": "Terrified Witness",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C18",
       "name": "Porple",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
     ,
     {
       "id": "C19",
       "name": "Ajubuh",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }    
     ,
     {
       "id": "C20",
       "name": "Suki's Uncle",
-      "price": 300,
+      "price": 100,
       "rarity": "COMMON"
     }
   ],
@@ -525,14 +525,14 @@ module.exports = {
     {
       "id": "A1",
       "name": "MrBibbles",
-      "price": 10000,
+      "price": 5000,
       "rarity": "APEX"
     }
     ,
     {
       "id": "A2",
       "name": "KevTsuboi",
-      "price": 10000,
+      "price": 5000,
       "rarity": "APEX"
     }
   ]
