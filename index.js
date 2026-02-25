@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.101";
+const BOT_VERSION = "1.102";
 const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
@@ -78,6 +78,24 @@ mongoose.connect(process.env.MONGO_URI)
 //client.login('token');
 client.login(process.env.TOKEN);
 
+
+async function getOrCreateUser(userId) {
+  let user = await User.findOne({ userId });
+
+  if (!user) {
+    user = new User({
+      userId,
+      bones: 500,          // 👈 Starting bonus
+      inventory: [],
+      dailyStreak: 0,
+      dailyLastClaim: null
+    });
+
+    await user.save();
+  }
+
+  return user;
+}
 
 //Enable Slash Commands
 const commands = [
@@ -295,6 +313,40 @@ function generateShop() {
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
+
+  // ----------------------
+  // WIPE USER COMMAND
+  // ----------------------
+  if (message.content.startsWith('!wipeuser')) {
+
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission to use this command.");
+    }
+
+    const target = message.mentions.users.first();
+
+    if (!target) {
+      return message.reply("Usage: !wipeuser @user");
+    }
+
+    const user = await User.findOne({ userId: target.id });
+
+    if (!user) {
+      return message.reply("That user does not have an account.");
+    }
+
+    user.bones = 0;
+    user.inventory = [];
+    user.dailyStreak = 0;
+    user.dailyLastClaim = null;
+
+    await user.save();
+
+    return message.channel.send(
+      `💀 ${target.username}'s account has been wiped.\n` +
+      `Bones: 0\nInventory: Cleared\nStreak: Reset`
+    );
+  }
 
   // ----------------------
   // GIVE CARD COMMAND
@@ -540,15 +592,7 @@ if (message.content.startsWith('!removebones')) {
 
   cooldowns.set(message.author.id, now);
 
-  let user = await User.findOne({ userId: message.author.id });
-
-  if (!user) {
-    user = new User({
-      userId: message.author.id,
-      bones: 500,
-      inventory: []
-    });
-  }
+  const user = await getOrCreateUser(message.author.id);
 
   const bonesEarned = Math.floor(Math.random() * 4) + 1;
   user.bones += bonesEarned;
@@ -582,24 +626,11 @@ client.on('interactionCreate', async interaction => {
   // =====================================================
   // SLASH COMMANDS
   // =====================================================
-
-  // =====================================================
-  // SLASH COMMANDS
-  // =====================================================
   if (interaction.isChatInputCommand()) {
 
     if (interaction.commandName === 'daily') {
 
-  let user = await User.findOne({ userId: interaction.user.id });
-
-  if (!user) {
-    user = new User({
-      userId: interaction.user.id,
-      bones: 500,
-      inventory: [],
-      dailyStreak: 0
-    });
-  }
+  const user = await getOrCreateUser(interaction.user.id);
 
   const now = new Date();
   const cooldown = 16 * 60 * 60 * 1000; // 16 hours
@@ -662,16 +693,7 @@ client.on('interactionCreate', async interaction => {
 
   const targetUser = interaction.options.getUser('user') || interaction.user;
 
-  let user = await User.findOne({ userId: targetUser.id });
-
-  if (!user) {
-    user = new User({
-      userId: targetUser.id,
-      bones: 500,
-      inventory: []
-    });
-    await user.save();
-  }
+  const user = await getOrCreateUser(targetUser.id);
 
   const balanceEmbed = new EmbedBuilder()
     .setColor(0xE5C07B)
@@ -696,7 +718,7 @@ client.on('interactionCreate', async interaction => {
 
       const target = interaction.options.getUser('user') || interaction.user;
 
-      const user = await User.findOne({ userId: target.id });
+      const user = await getOrCreateUser(target.id);
 
 
       if (!user || user.inventory.length === 0) {
@@ -821,7 +843,7 @@ client.on('interactionCreate', async interaction => {
 
 
       const perPage = 10;
-      const totalPages = Math.ceil(sortedInventory.length / perPage);
+      const totalPages = Math.max(1, Math.ceil(sortedInventory.length / perPage));
 
       if (direction === 'next') currentPage++;
       if (direction === 'prev') currentPage--;
@@ -979,11 +1001,7 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
         return interaction.reply({ content: "Card not found.", flags: 64 });
       }
 
-      let user = await User.findOne({ userId: interaction.user.id });
-
-      if (!user) {
-        return interaction.reply({ content: "You don't have an account yet.", flags: 64 });
-      }
+      const user = await getOrCreateUser(interaction.user.id);
 
       if (user.bones < card.price) {
         return interaction.reply({ content: "You don't have enough Bones!", flags: 64 });
