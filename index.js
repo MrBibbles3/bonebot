@@ -8,9 +8,12 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.1";
+const BOT_VERSION = "1.101";
 const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
-const ALLOWED_CHANNEL_ID = '1471356531009130701';
+const ALLOWED_CHANNELS = [
+  '1471356398989480103',
+  '1471356531009130701'
+];
 
 
 const client = new Client({
@@ -114,7 +117,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
     await rest.put(
       Routes.applicationGuildCommands(
         '1471165869588742418',  // CLIENT ID
-        '1470496896698028053'        // SERVER ID
+        '1393315074235699200'   // SERVER ID
       ),
       { body: commands }
     );
@@ -560,13 +563,25 @@ if (message.content.startsWith('!removebones')) {
 
 client.on('interactionCreate', async interaction => {
 
-  // Only allow interactions in one channel
-  if (interaction.channelId !== ALLOWED_CHANNEL_ID) {
+  // Ignore other interaction types (optional but clean)
+  if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
+
+  // Only allow interactions in specific channels
+  if (!ALLOWED_CHANNELS.includes(interaction.channelId)) {
+
+    if (interaction.replied || interaction.deferred) {
+      return;
+    }
+
     return interaction.reply({
-      content: "🦴 Use Bone Bot in the designated channel.",
+      content: "🦴 Use Bone Bot in the shop or commands channel.",
       flags: 64
     });
   }
+
+  // =====================================================
+  // SLASH COMMANDS
+  // =====================================================
 
   // =====================================================
   // SLASH COMMANDS
