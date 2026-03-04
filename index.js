@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.2";
+const BOT_VERSION = "1.206";
 const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
@@ -652,7 +652,7 @@ client.on('interactionCreate', async interaction => {
 
     const nextMidnight = new Date(brisbaneNow);
     nextMidnight.setHours(24, 0, 0, 0);
-
+    nextMidnight.setHours(nextMidnight.getHours() - 10); // shift 10 hours back
     const unixReset = Math.floor(nextMidnight.getTime() / 1000);
 
     // Already claimed today
