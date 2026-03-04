@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.201";
+const BOT_VERSION = "1.202";
 const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
@@ -627,86 +627,82 @@ client.on('interactionCreate', async interaction => {
   // SLASH COMMANDS
   // =====================================================
   if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === 'daily') {
 
-  if (interaction.commandName === 'daily') {
+      const user = await getOrCreateUser(interaction.user.id);
+      const now = new Date();
 
-    const user = await getOrCreateUser(interaction.user.id);
-
-    const now = new Date();
-
-    // Convert current time to Brisbane time
-    const brisbaneNow = new Date(
-      now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
-    );
-
-    const today = brisbaneNow.toDateString();
-
-    let lastClaimDate = null;
-
-    if (user.dailyLastClaim) {
-      const brisbaneLastClaim = new Date(
-        new Date(user.dailyLastClaim).toLocaleString("en-US", {
-          timeZone: "Australia/Brisbane"
-        })
+      // Convert current time to Brisbane time safely
+      const brisbaneNow = new Date(
+        now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
       );
+      const today = brisbaneNow.toDateString();
 
-      lastClaimDate = brisbaneLastClaim.toDateString();
-    }
+      let lastClaimDate = null;
+      if (user.dailyLastClaim) {
+        const lastClaim = new Date(user.dailyLastClaim);
+        if (!isNaN(lastClaim)) {
+          const brisbaneLastClaim = new Date(
+            lastClaim.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
+          );
+          lastClaimDate = brisbaneLastClaim.toDateString();
+        }
+      }
 
-    // Calculate next Brisbane midnight
-    const nextMidnight = new Date(brisbaneNow); // brisbaneNow is already in Brisbane time
-    nextMidnight.setDate(nextMidnight.getDate() + 1); // move to next day
-    nextMidnight.setHours(0, 0, 0, 0); // set to midnight
+      // Calculate next Brisbane midnight safely
+      const nextMidnight = new Date(brisbaneNow);
+      nextMidnight.setDate(nextMidnight.getDate() + 1);
+      nextMidnight.setHours(0, 0, 0, 0);
+      const unixReset = Math.floor(nextMidnight.getTime() / 1000);
 
-    const unixReset = Math.floor(nextMidnight.getTime() / 1000);  
+      // Already claimed today
+      if (lastClaimDate === today) {
+        return interaction.reply({
+          content: `🦴 You've already claimed your daily reward!\nResets at <t:${unixReset}:t> (<t:${unixReset}:R>)`,
+          flags: 64
+        });
+      }
 
-    // Already claimed today
-    if (lastClaimDate === today) {
+      // Ensure streak is a number
+      if (typeof user.dailyStreak !== 'number') user.dailyStreak = 0;
+
+      const maxStreak = 7;
+
+      // Calendar-based streak protection
+      if (user.dailyLastClaim && lastClaimDate) {
+        const yesterday = new Date(brisbaneNow);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayString = yesterday.toDateString();
+
+        if (lastClaimDate !== today && lastClaimDate !== yesterdayString) {
+          user.dailyStreak = 0;
+        }
+      }
+
+      // Increase streak but cap at maxStreak
+      if (user.dailyStreak < maxStreak) user.dailyStreak += 1;
+
+      // Reward calculation
+      const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
+      const streakBonus = user.dailyStreak * 30;
+      const totalReward = baseReward + streakBonus;
+
+      user.bones += totalReward;
+      user.dailyLastClaim = now;
+
+      await user.save();
+
       return interaction.reply({
-        content: `🦴 You've already claimed your daily reward!\nResets at <t:${unixReset}:t> (<t:${unixReset}:R>)`,
+        content:
+          `🦴 **Daily Claimed!**\n\n` +
+          `Base: \`${baseReward}\`\n` +
+          `Streak Bonus: \`${streakBonus}\`\n` +
+          `Total Earned: \`${totalReward}\`\n\n` +
+          `🔥 Current Streak: ${user.dailyStreak}/7\n\n` +
+          `💰 **New Balance:** \`${user.bones}\``,
         flags: 64
       });
     }
-
-    const maxStreak = 7;
-
-    // Calendar-based streak protection
-    if (user.dailyLastClaim) {
-      const yesterday = new Date(brisbaneNow);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayString = yesterday.toDateString();
-
-      if (lastClaimDate !== today && lastClaimDate !== yesterdayString) {
-        user.dailyStreak = 0;
-      }
-    }
-
-    if (!user.dailyStreak) user.dailyStreak = 0;
-
-    if (user.dailyStreak < maxStreak) {
-      user.dailyStreak += 1;
-    }
-
-    const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
-    const streakBonus = user.dailyStreak * 30;
-    const totalReward = baseReward + streakBonus;
-
-    user.bones += totalReward;
-    user.dailyLastClaim = now;
-
-    await user.save();
-
-    return interaction.reply({
-      content:
-        `🦴 **Daily Claimed!**\n\n` +
-        `Base: \`${baseReward}\`\n` +
-        `Streak Bonus: \`${streakBonus}\`\n` +
-        `Total Earned: \`${totalReward}\`\n\n` +
-        `🔥 Current Streak: ${user.dailyStreak}/7\n\n` +
-        `💰 **New Balance:** \`${user.bones}\``,
-      flags: 64
-    });
-  }
   }
 
 
