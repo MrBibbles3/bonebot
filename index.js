@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.2";
+const BOT_VERSION = "1.201";
 const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
@@ -628,15 +628,17 @@ client.on('interactionCreate', async interaction => {
   // =====================================================
   if (interaction.isChatInputCommand()) {
 
-    if (interaction.commandName === 'daily') {
+  if (interaction.commandName === 'daily') {
 
     const user = await getOrCreateUser(interaction.user.id);
 
     const now = new Date();
-    // Convert both times to Brisbane date strings
+
+    // Convert current time to Brisbane time
     const brisbaneNow = new Date(
       now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
     );
+
     const today = brisbaneNow.toDateString();
 
     let lastClaimDate = null;
@@ -647,13 +649,16 @@ client.on('interactionCreate', async interaction => {
           timeZone: "Australia/Brisbane"
         })
       );
+
       lastClaimDate = brisbaneLastClaim.toDateString();
     }
 
-    const nextMidnight = new Date(brisbaneNow);
-    nextMidnight.setHours(24, 0, 0, 0);
+    // Calculate next Brisbane midnight
+    const nextMidnight = new Date(brisbaneNow); // brisbaneNow is already in Brisbane time
+    nextMidnight.setDate(nextMidnight.getDate() + 1); // move to next day
+    nextMidnight.setHours(0, 0, 0, 0); // set to midnight
 
-    const unixReset = Math.floor(nextMidnight.getTime() / 1000);
+    const unixReset = Math.floor(nextMidnight.getTime() / 1000);  
 
     // Already claimed today
     if (lastClaimDate === today) {
@@ -662,11 +667,11 @@ client.on('interactionCreate', async interaction => {
         flags: 64
       });
     }
+
     const maxStreak = 7;
 
+    // Calendar-based streak protection
     if (user.dailyLastClaim) {
-
-           // Missed streak window
       const yesterday = new Date(brisbaneNow);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayString = yesterday.toDateString();
@@ -701,6 +706,7 @@ client.on('interactionCreate', async interaction => {
         `💰 **New Balance:** \`${user.bones}\``,
       flags: 64
     });
+  }
   }
 
 
