@@ -8,7 +8,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.102";
+const BOT_VERSION = "1.2";
 const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
@@ -630,62 +630,78 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.commandName === 'daily') {
 
-  const user = await getOrCreateUser(interaction.user.id);
+    const user = await getOrCreateUser(interaction.user.id);
 
-  const now = new Date();
-  const cooldown = 16 * 60 * 60 * 1000; // 16 hours
-  const streakWindow = 24 * 60 * 60 * 1000; // 24h to maintain streak
-  const maxStreak = 7;
+    const now = new Date();
+    // Convert both times to Brisbane date strings
+    const brisbaneNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
+    );
+    const today = brisbaneNow.toDateString();
 
-  if (user.dailyLastClaim) {
-    const timePassed = now - user.dailyLastClaim;
+    let lastClaimDate = null;
 
-    // Still on cooldown
-    if (timePassed < cooldown) {
-      const timeLeft = cooldown - timePassed;
+    if (user.dailyLastClaim) {
+      const brisbaneLastClaim = new Date(
+        new Date(user.dailyLastClaim).toLocaleString("en-US", {
+          timeZone: "Australia/Brisbane"
+        })
+      );
+      lastClaimDate = brisbaneLastClaim.toDateString();
+    }
 
-      const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    const nextMidnight = new Date(brisbaneNow);
+    nextMidnight.setHours(24, 0, 0, 0);
 
+    const unixReset = Math.floor(nextMidnight.getTime() / 1000);
+
+    // Already claimed today
+    if (lastClaimDate === today) {
       return interaction.reply({
-        content: `You already claimed your daily reward.\nCome back in ${hours}h ${minutes}m.`,
+        content: `🦴 You've already claimed your daily reward!\nResets at <t:${unixReset}:t> (<t:${unixReset}:R>)`,
         flags: 64
       });
     }
+    const maxStreak = 7;
 
-    // Missed streak window
-    if (timePassed > streakWindow) {
-      user.dailyStreak = 0;
+    if (user.dailyLastClaim) {
+
+           // Missed streak window
+      const yesterday = new Date(brisbaneNow);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayString = yesterday.toDateString();
+
+      if (lastClaimDate !== today && lastClaimDate !== yesterdayString) {
+        user.dailyStreak = 0;
+      }
     }
+
+    if (!user.dailyStreak) user.dailyStreak = 0;
+
+    if (user.dailyStreak < maxStreak) {
+      user.dailyStreak += 1;
+    }
+
+    const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
+    const streakBonus = user.dailyStreak * 30;
+    const totalReward = baseReward + streakBonus;
+
+    user.bones += totalReward;
+    user.dailyLastClaim = now;
+
+    await user.save();
+
+    return interaction.reply({
+      content:
+        `🦴 **Daily Claimed!**\n\n` +
+        `Base: \`${baseReward}\`\n` +
+        `Streak Bonus: \`${streakBonus}\`\n` +
+        `Total Earned: \`${totalReward}\`\n\n` +
+        `🔥 Current Streak: ${user.dailyStreak}/7\n\n` +
+        `💰 **New Balance:** \`${user.bones}\``,
+      flags: 64
+    });
   }
-
-  // Increase streak but cap at 7
-  if (user.dailyStreak < maxStreak) {
-    user.dailyStreak += 1;
-  }
-
-  const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
-  const streakBonus = user.dailyStreak * 30;
-  const totalReward = baseReward + streakBonus;
-
-  user.bones += totalReward;
-  user.dailyLastClaim = now;
-
-  await user.save();
-
-  return interaction.reply({
-    content:
-      `🦴 **Daily Claimed!**\n\n` +
-      `Base: \`${baseReward}\`\n` +
-      `Streak Bonus: \`${streakBonus}\`\n` +
-      `Total Earned: \`${totalReward}\`\n\n` +
-      `🔥 Current Streak: ${user.dailyStreak}/7\n\n` +
-      `💰 **New Balance:** \`${user.bones}\``,
-    flags: 64
-  });
-
-
-}
 
 
 
