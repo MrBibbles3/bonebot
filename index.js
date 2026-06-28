@@ -2344,9 +2344,18 @@ client.on('interactionCreate', async interaction => {
         });
       }
 
+      const paid = await spendBibblesToken(user);
+
+      if (!paid) {
+        return interaction.reply({
+          content: "💀 You have no Bibbles Tokens left!",
+          flags: 64
+        });
+      }
+      
       user.bones -= bet;
       await user.save();
-
+      
       return startBlackjack(interaction, bet);
     }
 
