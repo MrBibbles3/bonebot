@@ -1,6 +1,8 @@
+require('dotenv').config();
+
 const mongoose = require('mongoose');
 const cooldowns = new Map();
-const {Client, REST, Routes, SlashCommandBuilder, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle} = require('discord.js');
+const {Client, REST, Routes, Partials, SlashCommandBuilder, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, AllowedMentionsTypes } = require('discord.js');
 const cards = require('./data/cards');
 const rarities = require('./data/rarities');
 const User = require('./models/User');
@@ -8,12 +10,35 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "1.206";
-const IMAGE_COMMIT = "45f79f4"; // replace with newest git log --oneline
+const BOT_VERSION = "2.11";
+const IMAGE_COMMIT = "367d596"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
-  '1471356398989480103',
-  '1471356531009130701'
+  '1471357861526241350',
+  '1470496897721565419'
 ];
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
+const SHOP_CHANNEL_ID = process.env.SHOP_CHANNEL_ID;
+const OFFLINE_IMAGES = false;
+const {DM_REPLIES,RARE_DM_REPLIES} = require("./replies/dmReplies");
+const fs = require("fs");
+const path = require("path");
+const UNIQUE_UNLOCKS = require("./data/uniqueUnlocks");
+const { checkUnlocks } = require("./helpers/unlocks");
+
+
+//Game Constants
+const MAX_BIBBLES_TOKENS = 20;
+const DAILY_TOKEN_AMOUNT = 10;
+const COINFLIP_BETS = [50, 100, 200];
+const GRAVEROBBERY_BETS = [50, 100, 200];
+const {startBlackjack, handleBlackjackButton} = require("./games/blackjackGame");
+const BLACKJACK_BETS = [50, 100, 200];
+const HIGHLOW_BETS = [25, 50, 100];
+const {startHigherLower, handleHigherLowerButton} = require("./games/higherLowerGame");
+const {startBoneDig, handleBoneDigButton} = require("./games/boneDigGame");
+const BONEDIG_BETS = [100, 200, 500];
+
 
 
 const client = new Client({
@@ -21,7 +46,11 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.DirectMessages
+  ],
+  partials: [
+    Partials.Channel
   ]
 });
 
@@ -43,8 +72,10 @@ async function clearShopChannel(channel) {
 client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
+  setInterval(sendDailyResetPings, 60 * 1000);
+
   try {
-    const shopChannel = await client.channels.fetch('1471356398989480103');
+    const shopChannel = await client.channels.fetch(SHOP_CHANNEL_ID);
 
     // 🔥 Clear entire channel first
     await clearShopChannel(shopChannel);
@@ -56,10 +87,10 @@ client.once('clientReady', async () => {
     await shopChannel.send(`Update ${BOT_VERSION} is live!`);
 
 
-    // Rotate every 60 minutes
+    // Rotate every 60 minutes (30 for testing)
     setInterval(async () => {
       await postShop(shopChannel);
-    }, 60 * 60 * 1000);
+    }, 30 * 60 * 1000);
 
   } catch (err) {
     console.error("Shop boot error:", err);
@@ -88,11 +119,15 @@ async function getOrCreateUser(userId) {
       bones: 500,          // 👈 Starting bonus
       inventory: [],
       dailyStreak: 0,
-      dailyLastClaim: null
+      cappedStreak: 0,
+      dailyLastClaim: null,
+      lastRefundAt: null
     });
 
     await user.save();
   }
+
+  await applyDailyTokenGrant(user);
 
   return user;
 }
@@ -109,10 +144,73 @@ const commands = [
       .setRequired(false)
   ),
 
+  new SlashCommandBuilder()
+  .setName("achievements")
+  .setDescription("View Unique card achievement progress")
+  .addUserOption(option =>
+    option
+      .setName("user")
+      .setDescription("User to view")
+      .setRequired(false)
+  ),
+
+  new SlashCommandBuilder()
+    .setName("help")
+    .setDescription("Learn how BoneBot works"),
+
+  new SlashCommandBuilder()
+    .setName("commands")
+    .setDescription("View BoneBot help and commands"),
+
+  new SlashCommandBuilder()
+  .setName("games")
+  .setDescription("Play Bones Games using tokens!"),
+
+  new SlashCommandBuilder()
+  .setName('pings')
+  .setDescription('Set your Shop Pings'),
 
   new SlashCommandBuilder()
     .setName('daily')
-    .setDescription('Claim your daily Bones reward'),
+    .setDescription('Claim your daily <:BBones:1518220991938170910> reward'),
+
+  new SlashCommandBuilder()
+    .setName("index")
+    .setDescription("Check your BoneBot card index")
+
+    .addIntegerOption(option =>
+      option
+        .setName("season")
+        .setDescription("Season to check")
+        .setRequired(true)
+        .addChoices(
+          { name: "Season 1", value: 1 },
+          { name: "Season 2", value: 2 }
+        )
+    )
+
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("Whose index to view")
+        .setRequired(false)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("leaderboard")
+    .setDescription("View BoneBot leaderboards")
+    .addStringOption(option =>
+      option
+        .setName("type")
+        .setDescription("Which leaderboard to view")
+        .setRequired(true)
+        .addChoices(
+          { name: "Bones Spent", value: "spent" },
+          { name: "All Time Balance", value: "earned" },
+          { name: "Daily Streak", value: "daily" },
+          { name: "High Low Streak", value: "highlow" }
+        )
+    ),
 
   new SlashCommandBuilder()
     .setName('balance')
@@ -134,8 +232,8 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
     await rest.put(
       Routes.applicationGuildCommands(
-        '1471165869588742418',  // CLIENT ID
-        '1393315074235699200'   // SERVER ID
+        CLIENT_ID,  // CLIENT ID
+        GUILD_ID   // SERVER/GUILD ID
       ),
       { body: commands }
     );
@@ -147,6 +245,1036 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 })();
 
 
+function buildPingsMessage(user, viewerId) {
+  const pingEmbeds = [];
+  const files = [];
+
+  user.pingCards.forEach((cardId, index) => {
+    const slotNumber = index + 1;
+    const card = findCardById(cardId);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x2B2D31)
+      .setTitle(`📡 Ping Slot ${slotNumber}`);
+
+    if (!card) {
+      embed.setDescription("Not Set");
+    } else {
+      embed.setDescription(
+        `**${card.name}**\n` +
+        `SN: \`${card.season}\`\n` +
+        `ID: \`${getCardId(card)}\``
+      );
+
+      if (OFFLINE_IMAGES) {
+        const fileName = `ping_${slotNumber}_${card.id}.png`;
+
+        const attachment = new AttachmentBuilder(getCardImagePath(card), {
+          name: fileName
+        });
+
+        if (isCardGif(card)) {
+          embed.setImage(`attachment://${fileName}`);
+        } else {
+          embed.setImage(`attachment://${fileName}`);
+        }
+        files.push(attachment);
+      } else {
+        if (isCardGif(card)) {
+          embed.setImage(getCardImageUrl(card));
+        } else {
+          embed.setImage(getCardImageUrl(card));
+        }
+      }
+    }
+
+    pingEmbeds.push(embed);
+  });
+
+  const setRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pingslot_0_${viewerId}`)
+      .setLabel("Set Slot 1")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`pingslot_1_${viewerId}`)
+      .setLabel("Set Slot 2")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`pingslot_2_${viewerId}`)
+      .setLabel("Set Slot 3")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  const clearRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`clearping_0_${viewerId}`)
+      .setLabel("Clear Slot 1")
+      .setStyle(ButtonStyle.Danger),
+
+    new ButtonBuilder()
+      .setCustomId(`clearping_1_${viewerId}`)
+      .setLabel("Clear Slot 2")
+      .setStyle(ButtonStyle.Danger),
+
+    new ButtonBuilder()
+      .setCustomId(`clearping_2_${viewerId}`)
+      .setLabel("Clear Slot 3")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  const dailyPingRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`daily_ping_toggle_${viewerId}`)
+      .setLabel(user.dailyPingEnabled ? "Daily Ping: ON" : "Daily Ping: OFF")
+      .setEmoji(user.dailyPingEnabled ? "🔔" : "🔕")
+      .setStyle(user.dailyPingEnabled ? ButtonStyle.Success : ButtonStyle.Secondary)
+  );
+
+  return {
+    embeds: pingEmbeds,
+    files,
+    components: [setRow, clearRow, dailyPingRow],
+    flags: 64
+  };
+}
+
+function getCardId(card) {
+  return Number(card.season) === 1 ? card.id : `${card.season}${card.id}`;
+}
+
+function getCardImageUrl(card) {
+  return `https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot-test@${IMAGE_COMMIT}/images/S${card.season}/${getCardImageFileName(card)}?v=${BOT_VERSION}`;
+}
+
+function findCardById(cardId) {
+  if (!cardId) return null;
+
+  const wanted = cardId.toLowerCase();
+  const allCards = Object.values(cards).flat();
+
+  return allCards.find(card =>
+    getCardId(card).toLowerCase() === wanted ||
+    card.id.toLowerCase() === wanted
+  );
+}
+
+function getCardImagePath(card) {
+  return `./images/S${card.season}/${getCardImageFileName(card)}`;
+}
+
+function getCardImageUrl(card) {
+  return `https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot-test@${IMAGE_COMMIT}/images/S${card.season}/${getCardImageFileName(card)}?v=${BOT_VERSION}`;
+}
+
+function getInventorySortData(itemId) {
+  const seasonMatch = itemId.match(/^(\d+)/);
+  const season = seasonMatch ? parseInt(seasonMatch[1]) : 1;
+
+  const numberMatch = itemId.match(/(\d+)$/);
+  const number = numberMatch ? parseInt(numberMatch[1]) : 0;
+
+  return { season, number };
+}
+
+function sortInventoryCards(a, b) {
+  const aData = getInventorySortData(a.itemId);
+  const bData = getInventorySortData(b.itemId);
+
+  if (aData.season !== bData.season) {
+    return aData.season - bData.season;
+  }
+
+  return aData.number - bData.number;
+}
+
+
+function buildHelpEmbed(section = "main") {
+  const embed = new EmbedBuilder()
+    .setColor(0xEFBF04)
+    .setTitle("📖 BoneBot Help");
+
+  if (section === "main") {
+    embed.setDescription(
+      `# 👋 Welcome to BoneBot!\n\n` +
+
+      `**@BoneBot** is a Discord bot programmed by **MrBibbles** himself! (aided by **KevTsuboi and testers)**\n\n` +
+
+      `BoneBot provides a shop where you can purchase cards for your collection! These cards feature **MrBibbles' Server characters (real users)** and **inside jokes** that have happened throughout the server's lifespan.\n\n` +
+
+      `Purchase cards in <#1471356398989480103> using **BONES** <:BBones:1518220991938170910>, which you earn by:\n` +
+      `• 💬 Chatting\n` +
+      `• 📅 Claiming your Daily Reward\n` +
+      `• 🎮 Playing Games\n\n` +
+
+      `━━━━━━━━━━━━━━━━━━\n\n` +
+
+      `### 🎴 Why collect cards?\n\n` +
+
+      `Collecting cards will reward you with **badges** and **roles** in a future update. For now, they're a fun collection game to enjoy with other members of the server!\n\n` +
+
+      `There's even more to do:\n` +
+      `• 👑 Unlock **Achievements**\n` +
+      `• 🎲 Play **Gambling Games**\n` +
+      `• 🏆 Compete on the **Leaderboards**\n\n` +
+
+      `*More complicated games and features will be added in future updates!*\n\n` +
+
+      `━━━━━━━━━━━━━━━━━━\n\n` +
+
+      `## 📖 Click a button below to learn more!\n\n` +
+
+      `**1️⃣** • How to get Bones\n\n` +
+      `**2️⃣** • How to buy Cards\n\n` +
+      `**3️⃣** • Commands List\n\n` +
+      `**4️⃣** • Why??`
+    );
+  }
+
+  if (section === "bones") {
+    embed
+      .setTitle("1️⃣ How to get Bones")
+      .setDescription(
+        `**Bones** <:BBones:1518220991938170910> are the main currency BoneBot runs on!\n\n` +
+
+        `You can earn Bones by:\n` +
+        `• 💬 Sending messages anywhere in the server *(30 second cooldown)*\n` +
+        `• 📅 Using **/daily** *(includes an infinite streak with bonus rewards up to 30!)*\n` +
+        `• 🎮 Playing games with **/games**\n\n` +
+
+        `━━━━━━━━━━━━━━━━━━\n\n` +
+
+        `### 💰 Useful Commands\n\n` +
+
+        `**/balance** - Check your Bones balance *(or someone else's!)*\n\n` +
+        `**/leaderboard** - View the Bones leaderboard\n\n` +
+
+        `Once you've earned enough Bones, spend them in:\n` +
+        `• 🛒 <#1471356398989480103> *(Bone Shop)*\n` +
+        `• 🎲 **/games** *(Gambling Games)*\n\n` +
+
+        `*Spend wisely... or don't. Gamba is always an option.*`
+      );
+  }
+
+  if (section === "cards") {
+    embed
+      .setTitle("2️⃣ How to buy Cards")
+      .setDescription(
+        `Purchase **Bone Cards** in the Bone Shop:\n` +
+        `🛒 <#1471356398989480103>\n\n` +
+
+        `The Bone Shop refreshes **every hour**, offering random cards from multiple rarities!\n\n` +
+
+        `Current chances include:\n` +
+        `• 🌙 Nightmare Cards - **50%**\n` +
+        `• 💠 Apex Cards - **10%**\n` +
+        `• ❓ ...and there may be one more card that can appear... *shhh* 😉\n\n` +
+
+        `━━━━━━━━━━━━━━━━━━\n\n` +
+
+        `### 🎴 Building Your Collection\n\n` +
+
+        `Each shop card lets you:\n` +
+        `• ✅ Check if you already own it\n` +
+        `• 🛒 Purchase **1** or **5** copies\n\n` +
+
+        `Use these commands to manage your collection:\n\n` +
+
+        `**/index** - View every card in the game *(yours or another player's!)*\n\n` +
+        `**/inventory** - Browse your card collection *(or someone else's!)*\n\n` +
+
+        `🏆 Completing the **Season 1** or **Season 2** Index unlocks special rewards!\n\n` +
+        `Track your progress anytime using **/achievements**.`
+      );
+  }
+
+  if (section === "commands") {
+    embed
+      .setTitle("3️⃣ Commands List")
+      .setDescription(
+        `BoneBot currently has **10 commands** available!\n\n` +
+
+        `🏆 **/achievements**\n` +
+        `View every achievement and your progress *(or another player's!)*\n\n` +
+
+        `💰 **/balance**\n` +
+        `Check your Bones balance *(or another player's!)*\n\n` +
+
+        `📖 **/commands** or **/help**\n` +
+        `Open this help menu.\n\n` +
+
+        `📅 **/daily**\n` +
+        `Claim your daily Bones! Your streak is **infinite**, but bonus rewards stop increasing after **30**.\n\n` +
+
+        `🎲 **/games**\n` +
+        `Play gambling games using your Bones!\n\n` +
+
+        `🎴 **/index**\n` +
+        `View your card index progress *(or another player's!)*\n\n` +
+
+        `📦 **/inventory**\n` +
+        `Browse your card collection *(or another player's!)*\n\n` +
+
+        `🏅 **/leaderboard**\n` +
+        `View multiple leaderboards.\n\n` +
+
+        `🔔 **/pings**\n` +
+        `Set DM notifications for cards you're chasing, and enable Daily Pings!\n\n` +
+
+        `*You must have DMs from server members enabled for this feature to work.*`
+      );
+  }
+
+  if (section === "why") {
+    embed
+      .setTitle("4️⃣ Why??")
+      .setDescription(
+        `# 🎲 BECAUSE IT IS FUN! AND GAMBA!\n\n` +
+
+        `I *(MrBibbles)* have spent months working on this project on and off to prove to myself that I could!\n\n` +
+
+        `I've always wanted a real-life card collecting game, and this is **my game**. ❤️\n\n` +
+
+        `More features will continue to be added whenever I have spare time, including more advanced web-based games.\n\n` +
+
+        `For now, I hope you enjoy the games I've made and all of the amazing artwork submitted by members of the server!\n\n` +
+
+        `🎨 **Credits:**\n` +
+        `<#1474982495123411149>\n\n` +
+
+        `If you've created any artwork *(or even relevant memes!)* that you'd like to be considered, feel free to submit them here:\n\n` +
+
+        `🖼️ <#1481167502372245505>`
+      );
+  }
+
+  return embed;
+}
+
+function buildHelpButtons(userId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`help_bones_${userId}`)
+      .setLabel("1️⃣")
+      .setStyle(ButtonStyle.Primary),
+
+    new ButtonBuilder()
+      .setCustomId(`help_cards_${userId}`)
+      .setLabel("2️⃣")
+      .setStyle(ButtonStyle.Success),
+
+    new ButtonBuilder()
+      .setCustomId(`help_commands_${userId}`)
+      .setLabel("3️⃣")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`help_why_${userId}`)
+      .setLabel("4️⃣")
+      .setStyle(ButtonStyle.Danger),
+
+    new ButtonBuilder()
+      .setCustomId(`help_main_${userId}`)
+      .setLabel("Menu")
+      .setEmoji("🏠")
+      .setStyle(ButtonStyle.Success)
+  );
+}
+
+
+async function applyDailyTokenGrant(user) {
+  const today = getBrisbaneToday();
+
+  if (user.lastGlobalTokenDaily === today) {
+    return user;
+  }
+
+  user.bibblesTokens = Math.min(
+    MAX_BIBBLES_TOKENS,
+    (user.bibblesTokens || 0) + DAILY_TOKEN_AMOUNT
+  );
+
+  user.lastGlobalTokenDaily = today;
+  user.lastBibblesTokenRecharge = new Date();
+
+  await user.save();
+  return user;
+}
+
+async function spendBibblesToken(user) {
+  if (user.bibblesTokens <= 0) {
+    return false;
+  }
+
+  user.bibblesTokens -= 1;
+  await user.save();
+
+  return true;
+}
+
+async function spendBibblesToken2(user) {
+  if (user.bibblesTokens <= 1) {
+    return false;
+  }
+
+  user.bibblesTokens -= 2;
+  await user.save();
+
+  return true;
+}
+
+
+async function startCoinFlip(interaction, bet) {
+  const embed = new EmbedBuilder()
+    .setTitle("<:BToken:1518219006392274995> Coin Flip")
+    .setDescription(
+      `Bet: **${bet} bones**\n\n` +
+      "You get **3 flips**.\n" +
+      "Choose Heads or Tails!"
+    )
+    .addFields(
+      { name: "Flips Left", value: "3", inline: true },
+      { name: "Wins", value: "0", inline: true }
+    )
+    .setColor(0xf5c542);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`coinflip_heads_${interaction.user.id}_3_0_${bet}`)
+      .setLabel("Heads")
+      .setEmoji("<:BHeads:1519545907920765028>")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`coinflip_tails_${interaction.user.id}_3_0_${bet}`)
+      .setLabel("Tails")
+      .setEmoji("<:BTails:1519545923632631879>")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return interaction.update({
+    embeds: [embed],
+    components: [row]
+  });
+}
+
+async function showCoinFlipBetMenu(interaction, user) {
+  const embed = new EmbedBuilder()
+    .setTitle("<:BToken:1518219006392274995> Coin Flip")
+    .setDescription(
+      "You used **1 Bibbles Token**.\n\n" +
+      "Choose your bet:\n\n" +
+      "Each game gives you **3 flips**.\n" +
+      "Each correct flip pays back **1x your bet**.\n" +
+      "Get all **3/3** for a bonus **+1x your bet**!"
+    )
+    .addFields(
+      { name: "Your Bones", value: `${user.bones} <:BBones:1518220991938170910>`, inline: true }
+    )
+    .setColor(0xf5c542);
+
+  const row = new ActionRowBuilder().addComponents(
+    ...COINFLIP_BETS.map(bet =>
+      new ButtonBuilder()
+        .setCustomId(`coinflip_bet_${bet}_${interaction.user.id}`)
+        .setLabel(`Bet ${bet}`)
+        .setEmoji("<:BBones:1518220991938170910>")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(user.bones < bet)
+    )
+  );
+
+  return interaction.reply({
+    embeds: [embed],
+    components: [row],
+    flags: 64
+  });
+}
+
+async function showGraveRobberyBetMenu(interaction, user) {
+  const embed = new EmbedBuilder()
+    .setTitle("⚰️ Grave Robbery")
+    .setDescription(
+      "You used **1 Bibbles Token**.\n\n" +
+      "Choose your bet:\n\n" +
+      "You get **3 graves**.\n" +
+      "Each grave has either **treasure** or a **curse**."
+    )
+    .addFields(
+      { name: "Your Bones", value: `${user.bones} <:BBones:1518220991938170910>`, inline: true }
+    )
+    .setColor(0x7b3f00);
+
+const row = new ActionRowBuilder().addComponents(
+    ...GRAVEROBBERY_BETS.map(bet =>
+      new ButtonBuilder()
+        .setCustomId(`graverobbery_bet_${bet}_${interaction.user.id}`)
+        .setLabel(`Bet ${bet}`)
+        .setEmoji("<:BBones:1518220991938170910>")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(user.bones < bet)
+    )
+  );
+
+  return interaction.reply({
+    embeds: [embed],
+    components: [row],
+    flags: 64
+  });
+}
+
+async function startGraveRobbery(interaction, bet) {
+  const embed = new EmbedBuilder()
+    .setTitle("⚰️ Grave Robbery")
+    .setDescription(
+      `Bet: **${bet} bones**\n\n` +
+      "Pick a grave.\n" +
+      "You have **3 rounds**."
+    )
+    .addFields(
+      { name: "Rounds Left", value: "3", inline: true },
+      { name: "Treasures Found", value: "0", inline: true }
+    )
+    .setColor(0x7b3f00);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`graverobbery_pick_1_${interaction.user.id}_3_0_${bet}`)
+      .setLabel("Grave 1")
+      .setEmoji("⚰️")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`graverobbery_pick_2_${interaction.user.id}_3_0_${bet}`)
+      .setLabel("Grave 2")
+      .setEmoji("⚰️")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`graverobbery_pick_3_${interaction.user.id}_3_0_${bet}`)
+      .setLabel("Grave 3")
+      .setEmoji("⚰️")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return interaction.update({
+    embeds: [embed],
+    components: [row]
+  });
+}
+
+
+async function showBlackjackBetMenu(interaction, user) {
+  const embed = new EmbedBuilder()
+    .setTitle("🃏 Blackjack")
+    .setDescription(
+      "Choose your bet.\n\n" +
+      "Can you get closer to **21** than the Dealer?\n"
+    )
+    .addFields({
+      name: "Your Bones",
+      value: `${user.bones} <:BBones:1518220991938170910>`
+    })
+    .setColor(0x2ecc71);
+
+  const row = new ActionRowBuilder().addComponents(
+    ...BLACKJACK_BETS.map(bet =>
+      new ButtonBuilder()
+        .setCustomId(`blackjack_bet_${bet}_${interaction.user.id}`)
+        .setLabel(`Bet ${bet}`)
+        .setEmoji("<:BBones:1518220991938170910>")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(user.bones < bet)
+    )
+  );
+
+  return interaction.reply({
+    embeds: [embed],
+    components: [row],
+    flags: 64
+  });
+}
+
+async function showHigherLowerBetMenu(interaction, user) {
+  const embed = new EmbedBuilder()
+    .setTitle("⬆️ Higher or Lower")
+    .setDescription(
+      "Guess whether the next card will be higher or lower.\n\n" +
+      "Cash out anytime.\n" +
+      "One wrong guess loses everything."
+    )
+    .addFields(
+    {
+      name: "Your Bones",
+      value: `${user.bones} <:BBones:1518220991938170910>`,
+      inline: true
+    },
+    {
+      name: "Best Streak",
+      value: `${user.highlowBestStreak || 0}`,
+      inline: true
+    }
+  )
+    .setColor(0x5865f2);
+
+  const row = new ActionRowBuilder().addComponents(
+    ...HIGHLOW_BETS.map(bet =>
+      new ButtonBuilder()
+        .setCustomId(`highlow_bet_${bet}_${interaction.user.id}`)
+        .setLabel(`Bet ${bet}`)
+        .setEmoji("<:BBones:1518220991938170910>")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(user.bones < bet)
+    )
+  );
+
+  return interaction.reply({
+    embeds: [embed],
+    components: [row],
+    flags: 64
+  });
+}
+
+async function showBoneDigBetMenu(interaction, user) {
+  const embed = new EmbedBuilder()
+    .setTitle("⛏️ Bone Dig")
+    .setDescription(
+      "Pick rocks and dig for treasure.\n\n" +
+      "Find bones, treasure, or relics.\n" +
+      "Hit a trap and lose everything.\n" +
+      "Cash out anytime."
+    )
+    .addFields({
+      name: "Your Bones",
+      value: `${user.bones} <:BBones:1518220991938170910>`
+    })
+    .setColor(0xc27c2c);
+
+  const row = new ActionRowBuilder().addComponents(
+    ...BONEDIG_BETS.map(bet =>
+      new ButtonBuilder()
+        .setCustomId(`bonedig_bet_${bet}_${interaction.user.id}`)
+        .setLabel(`Bet ${bet}`)
+        .setEmoji("<:BBones:1518220991938170910>")
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(user.bones < bet)
+    )
+  );
+
+  return interaction.reply({
+    embeds: [embed],
+    components: [row],
+    flags: 64
+  });
+}
+
+async function showGamesMenu(interaction, user, useUpdate = false) {
+
+  const embed = new EmbedBuilder()
+    .setTitle("🎮 Bibbles Games")
+    .setDescription(
+      `Welcome to the BoneBot arcade!\n\n` +
+      `<:BToken:1518219006392274995> **Game Tokens:** ${user.bibblesTokens}/${MAX_BIBBLES_TOKENS}\n` +
+      `⏳ **Next Token:** Gives +10 at "daily" reset time!\n\n` +
+      `Choose a game below:`
+    )
+    .addFields(
+      {
+        name: "<:BToken:1518219006392274995> Coin Flip",
+        value: "3 flips per token.",
+        inline: true
+      },
+      {
+        name: "⚰️ Grave Robbery",
+        value: "Rob 3 graves per token.",
+        inline: true
+      },
+      {
+        name: "🃏 Blackjack",
+        value: "1 hand per token.",
+        inline: true
+      },
+      {
+        name: "⬆️ Higher or Lower",
+        value: "Climb the multiplier.",
+        inline: true
+      },
+      {
+        name: "⛏️ Bone Dig (2 TOKENS)",
+        value: "Dig, cash out, or perish.",
+        inline: true
+      }
+    )
+    .setColor(0xf5c542);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`game_coinflip_${interaction.user.id}`)
+      .setLabel("Coin Flip")
+      .setEmoji("<:BToken:1518219006392274995>")
+      .setStyle(ButtonStyle.Danger),
+
+    new ButtonBuilder()
+      .setCustomId(`game_graverobbery_${interaction.user.id}`)
+      .setLabel("Grave Robbery")
+      .setEmoji("⚰️")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId(`game_blackjack_${interaction.user.id}`)
+      .setLabel("Blackjack")
+      .setEmoji("🃏")
+      .setStyle(ButtonStyle.Danger),
+
+    new ButtonBuilder()
+      .setCustomId(`game_higherlower_${interaction.user.id}`)
+      .setLabel("Higher/Lower")
+      .setEmoji("⬆️")
+      .setStyle(ButtonStyle.Primary),
+
+    new ButtonBuilder()
+      .setCustomId(`game_bonedig_${interaction.user.id}`)
+      .setLabel("Bone Dig")
+      .setEmoji("⛏️")
+      .setStyle(ButtonStyle.Success)
+  );
+
+  const payload = {
+    embeds: [embed],
+    components: [row]
+  };
+
+  if (useUpdate) {
+    return interaction.update(payload);
+  }
+
+  return interaction.reply({
+    ...payload,
+    flags: 64
+  });
+} 
+
+function createMainMenuRow(userId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`games_menu_${userId}`)
+      .setLabel("Main Menu")
+      .setEmoji("🎮")
+      .setStyle(ButtonStyle.Primary)
+  );
+}
+
+
+
+
+async function buildLeaderboardPayload(interaction, type, page = 0) {
+  const PAGE_SIZE = 10;
+
+  let users = await User.find().lean();
+
+  let title;
+  let getValue;
+  let statLabel;
+
+  if (type === "spent") {
+    title = "🛒 Leaderboard Bones Spent";
+    statLabel = "bones spent";
+    getValue = user => user.bonesSpentTotal || 0;
+  } else if (type === "earned") {
+    title = "📜 Leaderboard All Time Balance";
+    statLabel = "bones earned";
+    getValue = user => user.bonesEarnedTotal || 0;
+  } else if (type === "daily") {
+    title = "🔥 Leaderboard Daily Streak";
+    statLabel = "day streak";
+    getValue = user => user.dailyStreak || 0;
+  } else {
+    title = "⬆️ Leaderboard High Low Streak";
+    statLabel = "best streak";
+    getValue = user => user.highlowBestStreak || 0;
+  }
+
+  users = users
+    .filter(user => getValue(user) > 0)
+    .sort((a, b) => getValue(b) - getValue(a));
+
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  page = Math.max(0, Math.min(page, totalPages - 1));
+
+  const pageUsers = users.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  const lines = await Promise.all(
+    pageUsers.map(async (user, index) => {
+      const rank = page * PAGE_SIZE + index + 1;
+
+      const displayName = `<@${user.userId}>`;
+
+      const place =
+        rank === 1 ? "🥇" :
+        rank === 2 ? "🥈" :
+        rank === 3 ? "🥉" :
+        `**${rank}.**`;
+
+      return `${place} ${displayName} - **${getValue(user).toLocaleString()}** ${statLabel}`;
+    })
+  );
+
+  const yourIndex = users.findIndex(user => user.userId === interaction.user.id);
+  const yourPosition =
+    yourIndex === -1 ? "Unranked" : `#${yourIndex + 1}`;
+
+  const embed = new EmbedBuilder()
+    .setTitle(`${title} (Page ${page + 1}/${totalPages})`)
+    .setDescription(
+      `${lines.join("\n") || "No leaderboard data yet."}\n\n` +
+      `🏅 **Your Position:** **${yourPosition}**`
+    )
+    .setColor(0x5865f2);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`leaderboard_prev_${type}_${page}_${interaction.user.id}`)
+      .setEmoji("◀️")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page <= 0),
+
+    new ButtonBuilder()
+      .setLabel(`Page ${page + 1}/${totalPages}`)
+      .setStyle(ButtonStyle.Primary)
+      .setCustomId("leaderboard_page")
+      .setDisabled(true),
+
+    new ButtonBuilder()
+      .setCustomId(`leaderboard_next_${type}_${page}_${interaction.user.id}`)
+      .setEmoji("▶️")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages - 1)
+  );
+
+  return {
+    embeds: [embed],
+    components: [row],
+    AllowedMentions: { parse: []}
+  };
+}
+
+function getCardImageFileName(card) {
+  const seasonFolder = path.join(__dirname, "images", `S${card.season}`);
+
+  const gifPath = path.join(seasonFolder, `${card.id}.gif`);
+  const pngPath = path.join(seasonFolder, `${card.id}.png`);
+
+  if (fs.existsSync(gifPath)) return `${card.id}.gif`;
+  return `${card.id}.png`;
+}
+
+function isCardGif(card) {
+  return getCardImageFileName(card).toLowerCase().endsWith(".gif");
+}
+
+
+
+function getSeasonIndexData(user, season) {
+  const seasonCards = Object.values(cards)
+    .flat()
+    .filter(card => {
+      if (Number(card.season) !== Number(season)) return false;
+
+      // Exclude the Season 1 reward card
+      if (season === 1 && getCardId(card) === UNIQUE_UNLOCKS.bibbles.cardId) {
+        return false;
+      }
+
+      // Exclude the Season 2 reward card
+      if (season === 2 && getCardId(card) === UNIQUE_UNLOCKS.appl.cardId) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) =>
+      getCardId(a).localeCompare(getCardId(b), undefined, { numeric: true })
+    );
+
+  const ownedCards = seasonCards.filter(card =>
+    user.inventory.some(inv =>
+      inv.itemId === getCardId(card) &&
+      inv.quantity > 0
+    )
+  );
+
+  return {
+    seasonCards,
+    ownedCards,
+    ownedCount: ownedCards.length,
+    totalCount: seasonCards.length,
+    complete: ownedCards.length === seasonCards.length
+  };
+}
+
+function getShopSeasonsForToday() {
+  const day = new Date().getDay();
+  // 0 = Sunday
+  // 1 = Monday
+  // 2 = Tuesday
+  // 3 = Wednesday
+  // 4 = Thursday
+  // 5 = Friday
+  // 6 = Saturday
+
+  // Sunday, Monday, Tuesday = Season 2 only
+  if ([0, 1, 2].includes(day)) {
+    return [2];
+  }
+
+  // Wednesday, Thursday, Friday, Saturday = Both Seasons
+  return [1, 2];
+}
+
+let lastDailyPingDate = null;
+
+function getDailyPingResetDate() {
+  const now = new Date();
+
+  const brisbaneNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
+  );
+
+  const resetTime = new Date(brisbaneNow);
+  resetTime.setHours(24, 0, 0, 0);
+  resetTime.setHours(resetTime.getHours() - 10);
+
+  return resetTime;
+}
+
+async function sendDailyResetPings(force = false) {
+  const today = getBrisbaneToday();
+
+  if (!force && lastDailyPingDate === today) return 0;
+  const now = new Date();
+  const resetTime = getDailyPingResetDate();
+
+  if (!force && now < resetTime) return 0;
+
+  lastDailyPingDate = today;
+
+  const users = await User.find({
+    dailyPingEnabled: true
+  });
+
+  for (const userData of users) {
+    try {
+      const discordUser = await client.users.fetch(userData.userId);
+
+      await discordUser.send(
+        `<:BBones:1518220991938170910> **Daily Reset!**\n\n` +
+        `Your **/daily** reward is ready to claim here https://discord.com/channels/1393315074235699200/1471356531009130701 !`
+      );
+    } catch (err) {
+      console.log(`Could not send daily ping to ${userData.userId}: ${err.message}`);
+    }
+  }
+
+  console.log(`Daily reset pings sent to ${users.length} users.`);
+}
+
+//Brisbane Time Function
+function getBrisbaneToday() {
+  return new Date (
+    new Date().toLocaleString("en-US", { timeZone: "Australia/Brisbane"})
+  ).toDateString();
+}
+
+async function notifyPingUsers(shopItems) {
+  const shopCardIds = shopItems.map(card => getCardId(card));
+
+  const usersWithPings = await User.find({
+    pingCards: { $exists: true, $ne: [] }
+  });
+
+  for (const userData of usersWithPings) {
+    if (!userData.pingCards || userData.pingCards.length === 0) continue;
+
+    const matchedCardIds = userData.pingCards.filter(cardId =>
+      cardId && shopCardIds.includes(cardId)
+    );
+
+    if (matchedCardIds.length === 0) continue;
+
+    const matchedCards = shopItems.filter(card =>
+      matchedCardIds.includes(getCardId(card))
+    );
+
+    try {
+      const discordUser = await client.users.fetch(userData.userId);
+
+      for (const card of matchedCards) {
+        const pingEmbed = new EmbedBuilder()
+          .setTitle("📡 Ping Alert!")
+          .setDescription(
+            `Your tracked card **${card.name}** is now available in the Bone Emporium! <:BBones:1518220991938170910> ***USE /pings to REMOVE DMs if wanted***`
+          )
+          .setColor(rarities[card.rarity].color)
+          .addFields(
+            { name: "SN", value: `\`${card.season}\``, inline: true },
+            { name: "Card ID", value: `\`${getCardId(card)}\``, inline: true },
+            { name: "Rarity", value: card.rarity, inline: true }
+          );
+
+        const files = [];
+
+        if (OFFLINE_IMAGES) {
+          const fileName = `ping_${getCardId(card)}.png`;
+
+          const attachment = new AttachmentBuilder(getCardImagePath(card), {
+            name: fileName
+          });
+
+          pingEmbed.setImage(`attachment://${fileName}`);
+          files.push(attachment);
+        } else {
+          pingEmbed.setImage(getCardImageUrl(card));
+        }
+
+        await discordUser.send({
+          embeds: [pingEmbed],
+          files
+        });
+      }
+
+      console.log(`Ping DM sent to ${userData.userId}`);
+    } catch (err) {
+      console.error(`Could not DM user ${userData.userId}:`, err.message);
+    }
+  }
+}
+
+
+function getCardsForRarity(rarity) {
+  if (rarity === 'SPECIAL') {
+    return [
+      ...(cards.UNIQUE || []),
+      ...(cards.EVENT || [])
+    ];
+  }
+
+  return cards[rarity] || [];
+}
+
+function getRarityDisplay(rarity) {
+  if (rarity === 'SPECIAL') {
+    return {
+      name: 'Special',
+      emoji: '🌸',
+      color: 0xFFB6C1
+    };
+  }
+
+  return rarities[rarity];
+}
 
 
 
@@ -187,6 +1315,8 @@ async function postShop(channel) {
 
   const shopItems = generateShop();
 
+  await notifyPingUsers(shopItems);
+
   shopEndTime = Date.now() + (60 * 60 * 1000); // 60 minutes
 
   // Send header
@@ -204,30 +1334,69 @@ async function postShop(channel) {
       .setTitle(card.name)
       .setDescription(
         `${rarityData.emoji} **${rarityData.name}** ${rarityData.emoji}\n\n` +
-        `**Price:** \`${card.price} Bones\`\n` +
-        `**Card ID:** \`${card.id}\``
+        `**Price:** \`${card.price}\`<:BBones:1518220991938170910>\n` +
+        `**Season:** \`${card.season}\`\n` +
+        `**Card ID:** \`${getCardId(card)}\``
       )
-      .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${card.id}.png?v=${BOT_VERSION}`)
       .setFooter({ text: "Click Buy to purchase" });
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`buy_${card.id}`)
-        .setLabel('Buy')
-        .setStyle(ButtonStyle.Primary)
-    );
+    let files = [];
 
+    if (OFFLINE_IMAGES) {
+      const fileName = getCardImageFileName(card);
+      const attachment = new AttachmentBuilder(getCardImagePath(card), {
+        name: fileName
+      });
+
+      if (isCardGif(card)) {
+        cardEmbed.setImage(`attachment://${fileName}`);
+      } else {
+        cardEmbed.setImage(`attachment://${fileName}`);
+      }
+      files.push(attachment);
+    } else {
+      if (isCardGif(card)) {
+        cardEmbed.setImage(getCardImageUrl(card));
+      } else {
+        cardEmbed.setImage(getCardImageUrl(card));
+      }
+    }
+
+      const ownRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`owncheck_${getCardId(card)}`)
+          .setLabel("Do I own this?")
+          .setEmoji("🔍")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      const buyRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`buy_${getCardId(card)}_1`)
+          .setLabel("Buy 1")
+          .setEmoji("<:BBones:1518220991938170910>")
+          .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+          .setCustomId(`buy_${getCardId(card)}_5`)
+          .setLabel("Buy 5")
+          .setEmoji("<:BBones:1518220991938170910>")
+          .setStyle(ButtonStyle.Success)
+      );
     const msg = await channel.send({
       embeds: [cardEmbed],
-      components: [row]
+      components: [ownRow, buyRow],
+      files
     });
 
     currentShopMessages.push(msg);
   }
 
+  
+
   // Start countdown updater
   // Start countdown updater
-countdownInterval = setInterval(async () => {
+  countdownInterval = setInterval(async () => {
 
   const timeLeft = shopEndTime - Date.now();
 
@@ -245,7 +1414,7 @@ countdownInterval = setInterval(async () => {
 
   try {
     await shopHeaderMessage.edit(
-      `# 🦴 The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${formatted}**`
+      `# <:BBones:1518220991938170910> The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${formatted}**`
     );
   } catch (err) {}
 
@@ -270,7 +1439,7 @@ countdownInterval = setInterval(async () => {
 
       try {
         await shopHeaderMessage.edit(
-          `# 🦴 The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${m}m ${s}s**`
+          `# <:BBones:1518220991938170910> The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${m}m ${s}s**`
         );
       } catch (err) {}
 
@@ -283,23 +1452,66 @@ countdownInterval = setInterval(async () => {
 }
 
 
+function addRandomUniqueCard(shop, rarity, seasons) {
+  const pool = cards[rarity].filter(card =>
+    seasons.includes(Number(card.season)) &&
+    !shop.some(existing => getCardId(existing) === getCardId(card))
+  );
+
+  if (pool.length === 0) return;
+
+  const randomCard = pool[Math.floor(Math.random() * pool.length)];
+  shop.push(randomCard);
+}
+
 function generateShop() {
   const shop = [];
+  const shopSeasons = getShopSeasonsForToday();
 
-  shop.push(getRandomCard('COMMON'));
-  shop.push(getRandomCard('EPIC'));
+  addRandomUniqueCard(shop, 'COMMON', shopSeasons);
 
-  const midRarity = Math.random() < 0.5 ? 'SECRET' : 'NIGHTMARE';
-  shop.push(getRandomCard(midRarity));
+  const thirdShop = Math.random() < 0.5 ? 'COMMON' : 'EPIC';
+  addRandomUniqueCard(shop, thirdShop, shopSeasons);
 
-  if (Math.random() < 0.10) {
-    shop.push(getRandomCard('APEX'));
+  addRandomUniqueCard(shop, 'EPIC', shopSeasons);
+
+  addRandomUniqueCard(shop, 'SECRET', shopSeasons);
+
+  const roll = Math.random();
+
+  let fifthShop;
+
+  if (roll < 0.45) {
+    fifthShop = 'SECRET';
+  } else if (roll < 0.90) {
+    fifthShop = 'NIGHTMARE';
+  } else {
+    fifthShop = 'APEX';
   }
 
-  return shop.filter(card => card !== null);
+  addRandomUniqueCard(shop, fifthShop, shopSeasons);
+
+  if (Math.random() < 0.01) {
+    addRandomUniqueCard(shop, 'UNIQUE', shopSeasons);
+  }
+
+  return shop;
 }
 
 
+function canUseRefund(user) {
+  if (!user.lastRefundAt) return true;
+
+  const today = getBrisbaneToday();
+
+  const lastRefundDate = new Date(
+    new Date(user.lastRefundAt).toLocaleString("en-US", { 
+      timeZone: "Australia/Brisbane"
+    })
+  ).toDateString();
+
+  return lastRefundDate !== today;
+}
 
 
 
@@ -313,10 +1525,366 @@ function generateShop() {
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
+  
 
-  // ----------------------
+  if (message.channel.isDMBased()) {
+
+    let reply;
+
+    if (Math.random() < 0.01) {
+      reply = RARE_DM_REPLIES[
+        Math.floor(Math.random() * RARE_DM_REPLIES.length)
+      ];
+    } else {
+      reply = DM_REPLIES[
+        Math.floor(Math.random() * DM_REPLIES.length)
+      ];
+    }
+
+    return message.reply(reply);
+  }
+
+  
+
+  // ========================
+  // RESET REFUND
+  // ========================
+  if (message.content.toLowerCase().startsWith('!resetrefund')) {
+
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission.");
+    }
+
+    const target = message.mentions.users.first();
+
+    if(!target) {
+      return message.reply("Usage: !resetrefund @user 🤓");
+    }
+
+    const user = await getOrCreateUser(target.id);
+
+    user.lastRefundAt = null;
+
+    await user.save();
+
+    return message.reply("<:BBones:1518220991938170910> Resetteded Yo Refund.");
+  }
+
+  
+  // ========================
+  // TEST PING DAILY
+  // ========================
+  if (message.content.toLowerCase() === "!pingdaily") {
+    if (!message.member.permissions.has("Administrator")) {
+      return message.reply("You don't have permission.");
+    }
+
+    const sent = await sendDailyResetPings(true);
+
+    return message.reply(
+      `✅ Daily ping sent to **${sent}** user${sent === 1 ? "" : "s"}.`
+    );
+  }
+
+
+
+  // ========================
+  // GIVE TOKENS
+  // ========================
+
+  if (message.content.startsWith("!givetokens")) {
+    if (!message.member.permissions.has("Administrator")) return;
+
+    const target = message.mentions.users.first();
+    const amount = Number(message.content.split(" ")[2]);
+
+    if (!target || !Number.isInteger(amount) || amount <= 0) {
+      return message.reply("Usage: `!givetokens @user amount`");
+    }
+
+    const user = await getOrCreateUser(target.id);
+
+    user.bibblesTokens = (user.bibblesTokens || 0) + amount;
+    await user.save();
+
+    return message.reply(
+      `🎮 Gave **${amount} Bibbles Tokens** to ${target.username}. They now have **${user.bibblesTokens}** tokens.`
+    );
+  }
+
+  // ========================
+  // REMOVE TOKENS
+  // ========================
+  if (message.content.startsWith("!removetokens")) {
+    if (!message.member.permissions.has("Administrator")) return;
+
+    const target = message.mentions.users.first();
+    const amount = Number(message.content.split(" ")[2]);
+
+    if (!target || !Number.isInteger(amount) || amount <= 0) {
+      return message.reply("Usage: `!removetokens @user amount`");
+    }
+
+    const user = await getOrCreateUser(target.id);
+
+    user.bibblesTokens = Math.max(0, (user.bibblesTokens || 0) - amount);
+    await user.save();
+
+    return message.reply(
+      `🎮 Removed **${amount} Bibbles Tokens** from ${target.username}. They now have **${user.bibblesTokens}** tokens.`
+    );
+  }
+
+
+  // ========================
+  // E RESET USER
+  // ========================
+  if (message.content.toLowerCase().startsWith('!eresetuser')) {
+
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission.");
+    }
+
+    const target = message.mentions.users.first();
+
+    if(!target) {
+      return message.reply("Usage: !eresetuser @user 🤓");
+    }
+
+    const user = await getOrCreateUser(target.id);
+
+      const resetEmbed = new EmbedBuilder()
+      .setColor(0xE5C07B)
+      .setTitle('<:BBones:1518220991938170910> Bone Balance <:BBones:1518220991938170910>')
+      .setDescription(`${target}'s balance:`)
+      .addFields(
+        { name: 'Bones', value: `\`0\``, inline: true }
+      )
+      .setTimestamp();
+
+      return message.reply({
+        content: `Got it Boss! ${target} has been COMPLETELY WIPED 👹MWUHAHAHAHAHAH👹`,
+        embeds: [resetEmbed]
+      });
+    
+    
+  }
+  
+  
+  // ========================
+  // USER INFO JSON
+  // ========================
+  if (message.content.toLowerCase().startsWith("!userinfojson")) {
+    if (!message.member.permissions.has("Administrator")) {
+      return message.reply("You don't have permission.");
+    }
+
+    const target =
+      message.mentions.users.first() || message.author;
+
+    const user = await User.findOne({
+      userId: target.id
+    });
+
+    if (!user) {
+      return message.reply("User not found.");
+    }
+
+    const json = JSON.stringify(
+      user.toObject(),
+      null,
+      2
+    );
+
+    if (json.length > 1900) {
+      const attachment = new AttachmentBuilder(
+        Buffer.from(json, "utf8"),
+        { name: `userinfo-${target.id}.json` }
+      );
+
+      return message.reply({
+        content: `📄 User data for ${target.username}`,
+        files: [attachment]
+      });
+    }
+
+    return message.reply({
+      content:
+        "```json\n" +
+        json +
+        "\n```"
+    });
+  }
+
+
+  // ========================
+  // USER INFO 
+  // ========================
+  if (message.content.toLowerCase().startsWith("!userinfo")) {
+    
+    const target =
+      message.mentions.users.first() || message.author;
+
+    const user = await User.findOne({
+      userId: target.id
+    });
+
+    if (!user) {
+      return message.reply("User not found.");
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`<:BBones:1518220991938170910> User Info: ${target.username}`)
+      .setColor(0xf5c542)
+      .setDescription(
+        `**User ID:** ${user.userId}\n` +
+        `**Bones:** ${user.bones}\n` +
+        `**Bones Earned:** ${user.bonesEarnedTotal ?? "N/A"}\n` +
+        `**Bones Spent:** ${user.bonesSpentTotal ?? "N/A"}\n` +
+        `**Daily Streak:** ${user.dailyStreak ?? 0}\n` +
+        `**Capped Streak:** ${user.cappedStreak ?? 0}\n` +
+        `**Best HL Streak:** ${user.highlowBestStreak ?? 0}\n` +
+        `**Bibbles Tokens:** ${user.bibblesTokens ?? 0}\n` +
+        `**Inventory Slots:** ${user.inventory?.length ?? 0}\n` +
+        `**Ping Cards:** ${(user.pingCards || []).filter(Boolean).length}/3`
+      );
+
+    return message.reply({
+      embeds: [embed]
+    });
+  }
+
+
+  // ========================
+  // SETUP SPENT TOTALS ONCE
+  // ========================
+  if (message.content === "!migratecardspending") {
+    if (!message.member.permissions.has("Administrator")) return;
+
+    const allCards = Object.values(cards).flat();
+
+    const users = await User.find();
+
+    let updatedUsers = 0;
+    let totalSet = 0;
+    let missingCards = 0;
+
+    for (const user of users) {
+      let userCardValue = 0;
+
+      for (const invItem of user.inventory || []) {
+        const card = allCards.find(c =>
+          getCardId(c) === invItem.itemId
+        );
+
+        if (!card) {
+          missingCards++;
+          console.log(
+            `[MIGRATE CARD SPENDING] Missing card for itemId: ${invItem.itemId} user: ${user.userId}`
+          );
+          continue;
+        }
+
+        const quantity = invItem.quantity || 0;
+        userCardValue += card.price * quantity;
+      }
+
+      user.bonesSpentTotal = userCardValue;
+      user.bonesEarnedTotal = userCardValue;
+      await user.save();
+
+      updatedUsers++;
+      totalSet += userCardValue;
+    }
+
+    return message.reply(
+      `<:BBones:1518220991938170910> Card spending migration complete.\n` +
+      `Updated users: \`${updatedUsers}\`\n` +
+      `Total bonesSpentTotal set across users: \`${totalSet}\`\n` +
+      `Missing card lookups: \`${missingCards}\``
+    );
+  }
+
+
+  // ========================
+  // SETUP UPDATED VALUES
+  // ========================
+  if (message.content === "!migrateUpdate") {
+    if (!message.member.permissions.has("Administrator")) return;
+
+    const users = await User.find();
+
+    let updated = 0;
+
+    for (const user of users) {
+      let changed = false;
+
+      // Daily streak cap migration
+      const cappedValue = Math.min(user.dailyStreak || 0, 30);
+
+      if (user.cappedStreak !== cappedValue) {
+        user.cappedStreak = cappedValue;
+        changed = true;
+      }
+
+      if (user.highlowBestStreak == null) {
+        user.highlowBestStreak = 0;
+        changed = true;
+      }
+
+      if (user.bonesEarnedTotal == null) {
+        user.bonesEarnedTotal = user.bones || 0;
+        changed = true;
+      }
+
+      if (user.bonesSpentTotal == null) {
+        user.bonesSpentTotal = 0;
+        changed = true;
+      }
+
+      if (user.pingCards == null) {
+        user.pingCards = [null, null, null];
+        changed = true;
+      }
+
+      if (changed) {
+        await user.save();
+        updated++;
+      }
+    }
+
+    return message.reply(
+      `<:BBones:1518220991938170910> Migration complete.\nUpdated ${updated} users.`
+    );
+  }
+
+  // ========================
+  // RESET DAILY
+  // ========================
+  if (message.content.toLowerCase().startsWith('!resetdaily')) {
+
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission.");
+    }
+
+    const target = message.mentions.users.first();
+
+    if(!target) {
+      return message.reply("Usage: !resetdaily @user 🤓");
+    }
+
+    const user = await getOrCreateUser(target.id);
+
+    user.dailyLastClaim = null;
+    
+    await user.save();
+
+    return message.reply("⏱️ Resetteded Yo Daily.");
+  }
+
+  // ========================
   // WIPE USER COMMAND
-  // ----------------------
+  // ========================
   if (message.content.startsWith('!wipeuser')) {
 
     if (!message.member.permissions.has('Administrator')) {
@@ -338,19 +1906,94 @@ client.on('messageCreate', async (message) => {
     user.bones = 0;
     user.inventory = [];
     user.dailyStreak = 0;
+    user.cappedStreak = 0;
     user.dailyLastClaim = null;
 
     await user.save();
 
     return message.channel.send(
       `💀 ${target.username}'s account has been wiped.\n` +
-      `Bones: 0\nInventory: Cleared\nStreak: Reset`
+      `<:BBones:1518220991938170910>: 0\nInventory: Cleared\nStreak: Reset`
     );
   }
 
-  // ----------------------
+
+  // ========================
   // GIVE CARD COMMAND
-  // ----------------------
+  // ========================
+  if (message.content.toLowerCase().startsWith("!giveall")) {
+    if (!message.member.permissions.has("Administrator")) {
+      return message.reply("You don't have permission.");
+    }
+
+    const args = message.content.split(/\s+/);
+
+    const target = message.mentions.users.first();
+    const rarity = args[2]?.toUpperCase();
+    const season = Number(args[3]);
+
+    if (!target || !rarity || !season) {
+      return message.reply("Usage: `!giveall @user RARITY SEASON`");
+    }
+
+    if (!cards[rarity]) {
+      return message.reply(`Invalid rarity: \`${rarity}\``);
+    }
+
+    let user = await User.findOne({ userId: target.id });
+
+    if (!user) {
+      user = new User({
+        userId: target.id,
+        bones: 0,
+        inventory: []
+      });
+    }
+
+    let added = 0;
+    let alreadyOwned = 0;
+
+    const cardsToGive = cards[rarity].filter(card =>
+      Number(card.season) === season
+    );
+
+    for (const card of cardsToGive) {
+      const fullCardId = getCardId(card);
+
+      const existingCard = user.inventory.find(i =>
+        i.itemId === fullCardId
+      );
+
+      if (existingCard) {
+        alreadyOwned++;
+        continue;
+      }
+
+      user.inventory.push({
+        itemId: fullCardId,
+        quantity: 1
+      });
+
+      added++;
+    }
+
+    await user.save();
+
+    const unlockEmbeds = await checkUnlocks(user, target);
+
+    return message.reply({
+      content:
+        `✅ Gave **${added}** ${rarity} Season ${season} cards to ${target}.\n` +
+        `Already owned: **${alreadyOwned}**`,
+      embeds: unlockEmbeds
+    });
+  }
+
+
+
+  // ========================
+  // GIVE CARD COMMAND
+  // ========================
   if (message.content.startsWith('!givecard')) {
 
     if (!message.member.permissions.has('Administrator')) {
@@ -368,8 +2011,17 @@ client.on('messageCreate', async (message) => {
     }
 
     // Find card in your card pool
-    const allCards = Object.values(cards).flat();
-    const card = allCards.find(c => c.id === cardId);
+    
+    console.log("Searching for:", cardId);
+
+      const allCards = Object.values(cards).flat();
+
+      console.log(
+        allCards
+          .filter(c => c.season === 2)
+          .map(c => getCardId(c))
+      );
+    const card = findCardById(cardId);
 
     if (!card) {
       return message.reply("Invalid Card ID.");
@@ -385,13 +2037,15 @@ client.on('messageCreate', async (message) => {
       });
     }
 
-    const existingCard = user.inventory.find(i => i.itemId === card.id);
+    const fullCardId = getCardId(card);
+
+    const existingCard = user.inventory.find(i => i.itemId === fullCardId);
 
     if (existingCard) {
       existingCard.quantity += amount;
     } else {
       user.inventory.push({
-        itemId: card.id,
+        itemId: fullCardId,
         quantity: amount
       });
     }
@@ -403,9 +2057,10 @@ client.on('messageCreate', async (message) => {
     );
   }
 
-  // ----------------------
+
+  // ========================
   // REMOVE CARD COMMAND
-  // ----------------------
+  // ========================
   if (message.content.startsWith('!removecard')) {
 
     if (!message.member.permissions.has('Administrator')) {
@@ -448,128 +2103,93 @@ client.on('messageCreate', async (message) => {
   }
 
 
-  // ----------------------
+  // ========================
   // Bones Command
-  // ----------------------
+  // ========================
   if (message.content.startsWith('!givebones')) {
 
-  // Only allow admins
-  if (!message.member.permissions.has('Administrator')) {
-    return message.reply("You don't have permission to use this command.");
+    // Only allow admins
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission to use this command.");
+    }
+
+    const args = message.content.split(' ');
+
+    const target = message.mentions.users.first();
+    const amount = parseInt(args[2]);
+
+    if (!target || isNaN(amount) || amount <= 0) {
+      return message.reply("Usage: !givebones @user <amount>");
+    }
+
+    let user = await User.findOne({ userId: target.id });
+
+    if (!user) {
+      user = new User({
+        userId: target.id,
+        bones: 0,
+        inventory: []
+      });
+    }
+
+    user.bones += amount;
+    await user.save();
+
+    return message.channel.send(
+      `Added \`${amount}\` <:BBones:1518220991938170910> to ${target}.`
+    );
   }
 
-  const args = message.content.split(' ');
 
-  const target = message.mentions.users.first();
-  const amount = parseInt(args[2]);
+  // ========================
+  // REMOVE BONES COMMAND
+  // ========================
+  if (message.content.startsWith('!removebones')) {
 
-  if (!target || isNaN(amount) || amount <= 0) {
-    return message.reply("Usage: !givebones @user <amount>");
-  }
-
-  let user = await User.findOne({ userId: target.id });
-
-  if (!user) {
-    user = new User({
-      userId: target.id,
-      bones: 0,
-      inventory: []
-    });
-  }
-
-  user.bones += amount;
-  await user.save();
-
-  return message.channel.send(
-    `Added \`${amount}\` Bones to ${target}.`
-  );
-}
-  // ----------------------
-// REMOVE BONES COMMAND
-// ----------------------
-if (message.content.startsWith('!removebones')) {
-
-  // Admin only
-  if (!message.member.permissions.has('Administrator')) {
-    return message.reply("You don't have permission to use this command.");
-  }
-
-  const args = message.content.split(' ');
-
-  const target = message.mentions.users.first();
-  const amount = parseInt(args[2]);
-
-  if (!target || isNaN(amount) || amount <= 0) {
-    return message.reply("Usage: !removebones @user <amount>");
-  }
-
-  let user = await User.findOne({ userId: target.id });
-
-  if (!user) {
-    return message.reply("That user does not have an account yet.");
-  }
-
-  user.bones -= amount;
-
-  if (user.bones < 0) {
-    user.bones = 0;
-  }
-
-  await user.save();
-
-  return message.channel.send(
-    `Removed \`${amount}\` Bones from ${target}.\nNew Balance: \`${user.bones}\``
-  );
-}
-
-
-  // ----------------------
-  // Shop Command
-  // ----------------------
-
-  if (message.content.toLowerCase() === '!shop') {
-      
     // Admin only
     if (!message.member.permissions.has('Administrator')) {
       return message.reply("You don't have permission to use this command.");
     }
-    const shopItems = generateShop();
 
-    // Header Message
-    await message.channel.send(
-      "# 🦴 The Bone Emporium!\n🔥 Check out the current Rotating Stock! 🔥"
-    );
+    const args = message.content.split(' ');
 
-    // Send each card as its own embed
-    for (const card of shopItems) {
+    const target = message.mentions.users.first();
+    const amount = parseInt(args[2]);
 
-      const rarityData = rarities[card.rarity.toUpperCase()];
-
-      const cardEmbed = new EmbedBuilder()
-        .setColor(rarityData.color)
-        .setTitle(card.name)
-        .setDescription(
-          `${rarityData.emoji} **${rarityData.name}** ${rarityData.emoji}\n\n` +
-          `**Price:** \`${card.price} Bones\`\n` +
-          `**Card ID:** \`${card.id}\``
-        )
-        .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${card.id}.png?v=${BOT_VERSION}`)
-        .setFooter({ text: "Click Buy to purchase" });
-
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-          .setCustomId(`buy_${card.id}`)
-          .setLabel('Buy')
-          .setStyle(ButtonStyle.Primary)
-        );
-
-        await message.channel.send({
-          embeds: [cardEmbed],
-          components: [row]
-        });
-
+    if (!target || isNaN(amount) || amount <= 0) {
+      return message.reply("Usage: !removebones @user <amount>");
     }
+
+    let user = await User.findOne({ userId: target.id });
+
+    if (!user) {
+      return message.reply("That user does not have an account yet.");
+    }
+
+    user.bones -= amount;
+
+    if (user.bones < 0) {
+      user.bones = 0;
+    }
+
+    await user.save();
+
+    return message.channel.send(
+      `Removed \`${amount}\` <:BBones:1518220991938170910> from ${target}.\nNew Balance: \`${user.bones}\``
+    );
+  }
+
+
+  // ========================
+  // Shop Command
+  // ========================
+
+  if (message.content.toLowerCase() === '!shop') {
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply("You don't have permission to use this command.");
+    }
+
+    await postShop(message.channel);
     return;
   }
 
@@ -580,7 +2200,7 @@ if (message.content.startsWith('!removebones')) {
   // ----------------------
 
   const now = Date.now();
-  const cooldownAmount = 60 * 1000; // 60 seconds
+  const cooldownAmount = 30 * 1000; // 30 seconds
 
   if (cooldowns.has(message.author.id)) {
     const expirationTime = cooldowns.get(message.author.id) + cooldownAmount;
@@ -594,12 +2214,13 @@ if (message.content.startsWith('!removebones')) {
 
   const user = await getOrCreateUser(message.author.id);
 
-  const bonesEarned = Math.floor(Math.random() * 4) + 1;
+  const bonesEarned = Math.floor(Math.random() * 5) + 5;
   user.bones += bonesEarned;
+  user.bonesEarnedTotal += bonesEarned; 
 
   await user.save();
 
-  console.log(`${message.author.username} earned ${bonesEarned} bones and now has ${user.bones}`);
+  console.log(`${message.author.username} earned ${bonesEarned} <:BBones:1518220991938170910> and now has ${user.bones}`);
 });
 
 
@@ -607,8 +2228,30 @@ if (message.content.startsWith('!removebones')) {
 
 client.on('interactionCreate', async interaction => {
 
+  if (
+    interaction.isButton() &&
+    interaction.customId.startsWith("games_menu_")
+  ) {
+    const ownerId = interaction.customId.split("_")[2];
+
+    if (interaction.user.id !== ownerId) {
+      return interaction.reply({
+        content: "💀 This isn’t your games menu!",
+        flags: 64
+      });
+    }
+
+    const user = await getOrCreateUser(interaction.user.id);
+
+    return showGamesMenu(interaction, user, true);
+  }
+
   // Ignore other interaction types (optional but clean)
-  if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
+  if (
+    !interaction.isChatInputCommand() &&
+    !interaction.isButton() &&
+    !interaction.isModalSubmit()
+  ) return;
 
   // Only allow interactions in specific channels
   if (!ALLOWED_CHANNELS.includes(interaction.channelId)) {
@@ -618,9 +2261,656 @@ client.on('interactionCreate', async interaction => {
     }
 
     return interaction.reply({
-      content: "🦴 Use Bone Bot in the shop or commands channel.",
+      content: "<:BBones:1518220991938170910> Use Bone Bot in the shop or commands channel.",
       flags: 64
     });
+  }
+
+
+  if (interaction.isButton() && interaction.customId.startsWith("daily_ping_toggle_")) {
+    const parts = interaction.customId.split("_");
+    const viewerId = parts[3];
+
+    if (interaction.user.id !== viewerId) {
+      return interaction.reply({
+        content: "This is not your ping menu.",
+        flags: 64
+      });
+    }
+
+    const user = await getOrCreateUser(interaction.user.id);
+
+    user.dailyPingEnabled = !user.dailyPingEnabled;
+    await user.save();
+
+    const pingsMessage = buildPingsMessage(user, interaction.user.id);
+
+    return interaction.update(pingsMessage);
+  }
+
+
+
+  if (interaction.isButton() && interaction.customId.startsWith("help_")) {
+    const parts = interaction.customId.split("_");
+
+    const section = parts[1];
+    const ownerId = parts[2];
+
+    if (interaction.user.id !== ownerId) {
+      return interaction.reply({
+        content: "This help menu is not yours.",
+        flags: 64
+      });
+    }
+
+    return interaction.update({
+      embeds: [buildHelpEmbed(section)],
+      components: [buildHelpButtons(ownerId)]
+    });
+  }
+
+    // ========================
+    // BLACKJACK BET
+    // ========================
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("blackjack_bet_")
+    ) {
+      const parts = interaction.customId.split("_");
+
+      const bet = Number(parts[2]);
+      const ownerId = parts[3];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn't your blackjack game!",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!BLACKJACK_BETS.includes(bet)) {
+        return interaction.reply({
+          content: "Invalid bet.",
+          flags: 64
+        });
+      }
+
+      if (user.bones < bet) {
+        return interaction.reply({
+          content: "Not enough bones.",
+          flags: 64
+        });
+      }
+
+      user.bones -= bet;
+      await user.save();
+
+      return startBlackjack(interaction, bet);
+    }
+
+    // =====================================================
+    // DO I OWN THIS BUTTON
+    // =====================================================
+    if (interaction.isButton() && interaction.customId.startsWith("owncheck_")) {
+      const cardId = interaction.customId.replace("owncheck_", "");
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      const invItem = user.inventory.find(item => item.itemId === cardId);
+
+      if (!invItem) {
+        return interaction.reply({
+          content: `❌ You do **not** own \`${cardId}\` yet.`,
+          flags: 64
+        });
+      }
+
+      return interaction.reply({
+        content: `✅ You own \`${cardId}\`! Quantity: **${invItem.quantity}**`,
+        flags: 64
+      });
+    }
+    // =====================================================
+    // BIBBLES GAME BUTTONS
+    // =====================================================
+    if (interaction.isButton() && interaction.customId.startsWith("game_")) {
+      console.log("Game button clicked:", interaction.customId);
+
+      const parts = interaction.customId.split("_");
+      const gameName = parts[1];
+      const ownerId = parts[2];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn’t your game menu!",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+
+      if (gameName === "coinflip") {
+        return showCoinFlipBetMenu(interaction, user);
+      }
+
+      if (gameName === "graverobbery") {
+        return showGraveRobberyBetMenu(interaction, user);
+      }
+
+      if (gameName === "blackjack") {
+        return showBlackjackBetMenu(interaction, user);
+      }
+
+      if (gameName === "higherlower") {
+        return showHigherLowerBetMenu(interaction, user);
+      }
+
+      if (gameName === "bonedig") {
+        return showBoneDigBetMenu(interaction, user);
+      }
+    }
+
+    if (
+        interaction.isButton() &&
+        interaction.customId.startsWith("blackjack_") &&
+        !interaction.customId.startsWith("blackjack_bet_")
+      ) {
+        return handleBlackjackButton(interaction);
+      }
+    
+    // =====================================================
+    // HIGHLOW BET BUTTONS
+    // =====================================================
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("highlow_") &&
+      !interaction.customId.startsWith("highlow_bet_")
+    ) {
+      return handleHigherLowerButton(interaction);
+    }
+
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("highlow_bet_")
+    ) {
+      const parts = interaction.customId.split("_");
+
+      const bet = Number(parts[2]);
+      const ownerId = parts[3];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn’t your Higher or Lower game!",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!HIGHLOW_BETS.includes(bet)) {
+        return interaction.reply({
+          content: "💀 Invalid bet.",
+          flags: 64
+        });
+      }
+
+      if (user.bones < bet) {
+        return interaction.reply({
+          content: `💀 You don’t have enough bones to bet **${bet}**.`,
+          flags: 64
+        });
+      }
+
+      const paid = await spendBibblesToken(user);
+
+      if (!paid) {
+        return interaction.reply({
+          content: "💀 You have no Bibbles Tokens left!",
+          flags: 64
+        });
+      }
+      
+      user.bones -= bet;
+      await user.save();
+
+      try {
+        return await startHigherLower(interaction, bet);
+      } catch (err) {
+        console.error("Higher/Lower start error:", err);
+
+        if (!interaction.replied && !interaction.deferred) {
+          return interaction.reply({
+            content: "💀 Higher or Lower crashed while starting.",
+            flags: 64
+          });
+        }
+      }return startHigherLower(interaction, bet);
+    }
+
+
+    // =====================================================
+    // GRAVE ROBBERY BET BUTTONS
+    // =====================================================
+    if (interaction.isButton() && interaction.customId.startsWith("graverobbery_bet_")) {
+      const parts = interaction.customId.split("_");
+
+      const bet = Number(parts[2]);
+      const ownerId = parts[3];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn’t your Grave Robbery game!",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!GRAVEROBBERY_BETS.includes(bet)) {
+        return interaction.reply({
+          content: "💀 Invalid bet.",
+          flags: 64
+        });
+      }
+
+      if (user.bones < bet) {
+        return interaction.reply({
+          content: `💀 You don’t have enough bones to bet **${bet}**.`,
+          flags: 64
+        });
+      }
+
+      const paid = await spendBibblesToken(user);
+
+      if (!paid) {
+        return interaction.reply({
+          content: "💀 You have no Bibbles Tokens left!",
+          flags: 64
+        });
+      }
+
+      user.bones -= bet;
+      await user.save();
+
+      return startGraveRobbery(interaction, bet);
+    }
+
+    // =====================================================
+    // GRAVE ROBBERY PICK BUTTONS
+    // =====================================================
+    if (interaction.isButton() && interaction.customId.startsWith("graverobbery_pick_")) {
+      const parts = interaction.customId.split("_");
+
+      const pickedGrave = parts[2];
+      const ownerId = parts[3];
+      let roundsLeft = Number(parts[4]);
+      let wins = Number(parts[5]);
+      const bet = Number(parts[6]);
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn’t your Grave Robbery game!",
+          flags: 64
+        });
+      }
+
+      const foundTreasure = Math.random() < 0.6;
+
+      roundsLeft -= 1;
+      if (foundTreasure) wins += 1;
+
+      const resultText = foundTreasure
+        ? `💰 Grave ${pickedGrave} had **treasure**!`
+        : `💀 Grave ${pickedGrave} was **cursed**!`;
+
+      const embed = new EmbedBuilder()
+        .setTitle("⚰️ Grave Robbery")
+        .setDescription(resultText)
+        .addFields(
+          { name: "Bet", value: `${bet} bones`, inline: true },
+          { name: "Rounds Left", value: String(roundsLeft), inline: true },
+          { name: "Treasures Found", value: String(wins), inline: true }
+        )
+        .setColor(foundTreasure ? 0x57f287 : 0xed4245);
+
+      if (roundsLeft <= 0) {
+        const user = await getOrCreateUser(interaction.user.id);
+
+        let winnings = 0;
+
+        if (wins === 1) winnings = Math.floor(bet * 0.5);
+        if (wins === 2) winnings = Math.floor(bet * 1.5);
+        if (wins === 3) winnings = Math.floor(bet * 3);
+
+        user.bones += winnings;
+        user.bonesEarnedTotal += winnings; 
+        await user.save();
+
+        const profit = winnings - bet;
+
+        embed.addFields({
+          name: "Game Over",
+          value:
+            `You found treasure **${wins}/3** times!\n` +
+            `💰 Winnings: **${winnings} bones**\n` +
+            `📊 Profit: **${profit >= 0 ? "+" : ""}${profit} bones**\n` +
+            `<:BBones:1518220991938170910> New Balance: **${user.bones} bones**<:BBones:1518220991938170910>`
+        });
+
+        return interaction.update({
+          embeds: [embed],
+          components: [createMainMenuRow(ownerId)]
+        });
+      }
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`graverobbery_pick_1_${ownerId}_${roundsLeft}_${wins}_${bet}`)
+          .setLabel("Grave 1")
+          .setEmoji("⚰️")
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId(`graverobbery_pick_2_${ownerId}_${roundsLeft}_${wins}_${bet}`)
+          .setLabel("Grave 2")
+          .setEmoji("⚰️")
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId(`graverobbery_pick_3_${ownerId}_${roundsLeft}_${wins}_${bet}`)
+          .setLabel("Grave 3")
+          .setEmoji("⚰️")
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      return interaction.update({
+        embeds: [embed],
+        components: [row]
+      });
+    }
+
+    // =====================================================
+    // BONE DIG BET BUTTONS
+    // =====================================================
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("bonedig_bet_")
+    ) {
+      const parts = interaction.customId.split("_");
+
+      const bet = Number(parts[2]);
+      const ownerId = parts[3];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn’t your Bone Dig game!",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!BONEDIG_BETS.includes(bet)) {
+        return interaction.reply({
+          content: "💀 Invalid bet.",
+          flags: 64
+        });
+      }
+
+      if (user.bones < bet) {
+        return interaction.reply({
+          content: `💀 You don’t have enough bones to bet **${bet}**.`,
+          flags: 64
+        });
+      }
+
+      const paid = await spendBibblesToken2(user);
+
+      if (!paid) {
+        return interaction.reply({
+          content: "💀 You have no Bibbles Tokens left!",
+          flags: 64
+        });
+      }
+
+      user.bones -= bet;
+      await user.save();
+
+      return startBoneDig(interaction, bet);
+    }
+
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("bonedig_") &&
+      !interaction.customId.startsWith("bonedig_bet_")
+    ) {
+      return handleBoneDigButton(interaction);
+    }
+
+
+    // =====================================================
+    // COIN FLIP BET BUTTONS
+    // =====================================================
+    if (interaction.isButton() && interaction.customId.startsWith("coinflip_bet_")) {
+      const parts = interaction.customId.split("_");
+
+      const bet = Number(parts[2]);
+      const ownerId = parts[3];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn’t your coin flip game!",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!COINFLIP_BETS.includes(bet)) {
+        return interaction.reply({
+          content: "💀 Invalid bet.",
+          flags: 64
+        });
+      }
+
+      if (user.bones < bet) {
+        return interaction.reply({
+          content: `💀 You don’t have enough bones to bet **${bet}**.`,
+          flags: 64
+        });
+      }
+
+      const paid = await spendBibblesToken(user);
+
+      if (!paid) {
+        return interaction.reply({
+          content: "💀 You have no Bibbles Tokens left!",
+          flags: 64
+        });
+      }
+
+      user.bones -= bet;
+      await user.save();
+
+      return startCoinFlip(interaction, bet);
+    }
+
+    // =====================================================
+    // COIN FLIP HEADS / TAILS BUTTONS
+    // =====================================================
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("coinflip_") &&
+      !interaction.customId.startsWith("coinflip_bet_")
+    ) {
+      const parts = interaction.customId.split("_");
+
+      const choice = parts[1];
+      const ownerId = parts[2];
+      let flipsLeft = Number(parts[3]);
+      let wins = Number(parts[4]);
+      const bet = Number(parts[5]);
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This isn’t your coin flip game!",
+          flags: 64
+        });
+      }
+
+      const result = Math.random() < 0.5 ? "heads" : "tails";
+      const won = choice === result;
+
+      flipsLeft -= 1;
+      if (won) wins += 1;
+
+      const resultText = won
+        ? `✅ It landed on **${result}**! You guessed right!`
+        : `❌ It landed on **${result}**! You guessed wrong!`;
+
+      const embed = new EmbedBuilder()
+        .setTitle("<:BToken:1518219006392274995> Coin Flip")
+        .setDescription(resultText)
+        .addFields(
+          { name: "Bet", value: `${bet} bones`, inline: true },
+          { name: "Flips Left", value: String(flipsLeft), inline: true },
+          { name: "Wins", value: String(wins), inline: true }
+        )
+        .setColor(won ? 0x57f287 : 0xed4245);
+
+      if (flipsLeft <= 0) {
+        const user = await getOrCreateUser(interaction.user.id);
+
+        let winnings = 0;
+        
+        if (wins === 0) winnings = Math.floor(bet * 0);
+        if (wins === 1) winnings = Math.floor(bet * 0.5);
+        if (wins === 2) winnings = Math.floor(bet * 2);
+        if (wins === 3) winnings = Math.floor(bet * 3.5);
+
+        user.bones += winnings;
+        user.bonesEarnedTotal += winnings;
+
+        let gameProgress = null;
+
+        if (wins === 3) {
+          user.coinFlipPerfectCount = (user.coinFlipPerfectCount || 0) + 1;
+          gameProgress = Math.min(user.coinFlipPerfectCount, 10);
+        }
+
+        await user.save();
+
+        const unlockEmbeds = await checkUnlocks(user, interaction.user);
+
+        const profit = winnings - bet;
+
+        let gameOverText =
+          `You got **${wins}/3** correct!\n` +
+          `💰 Winnings: **${winnings} bones**\n` +
+          `📊 Profit: **${profit >= 0 ? "+" : ""}${profit} bones**\n` +
+          `<:BBones:1518220991938170910> New Balance: **${user.bones} bones**<:BBones:1518220991938170910>`;
+
+        if (gameProgress !== null) {
+          gameOverText +=
+            `\n\n🪙 **Unique Card Progress:** \`${gameProgress}/10\`${gameProgress === 10 ? " ✅" : ""}`;
+        }
+
+        embed.addFields({
+          name: "Game Over",
+          value: gameOverText
+        });
+
+        const embeds = [embed];
+        embeds.push(...unlockEmbeds);
+
+        return interaction.update({
+          embeds,
+          components: [createMainMenuRow(ownerId)]
+        });
+      }
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`coinflip_heads_${ownerId}_${flipsLeft}_${wins}_${bet}`)
+          .setLabel("Heads")
+          .setEmoji("<:BHeads:1519545907920765028>")
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId(`coinflip_tails_${ownerId}_${flipsLeft}_${wins}_${bet}`)
+          .setLabel("Tails")
+          .setEmoji("<:BTails:1519545923632631879>")
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      return interaction.update({
+        embeds: [embed],
+        components: [row]
+      });
+    }
+
+    
+  // =====================================================
+  // PING MODAL SUBMIT
+  // =====================================================
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId.startsWith('setping_')) {
+      const parts = interaction.customId.split('_');
+
+      const slotIndex = Number(parts[1]);
+      const ownerId = parts[2];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "This ping modal is not yours.",
+          flags: 64
+        });
+      }
+
+      const cardIdInput = interaction.fields
+        .getTextInputValue('card_id')
+        .trim()
+        .toLowerCase();
+
+      const allCards = Object.values(cards).flat();
+
+      const card = allCards.find(c =>
+        getCardId(c).toLowerCase() === cardIdInput
+      );
+
+      if (!card) {
+        return interaction.reply({
+          content: `No card found with ID \`${cardIdInput}\`.`,
+          flags: 64
+        });
+      }
+
+      const blockedRarities = ['APEX', 'UNIQUE', 'EVENT'];
+
+      if (blockedRarities.includes(card.rarity.toUpperCase())) {
+        return interaction.reply({
+          content: `📡 ${card.rarity} cards cannot be tracked.`,
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!user.pingCards || user.pingCards.length !== 3) {
+        user.pingCards = [null, null, null];
+      }
+
+      user.pingCards[slotIndex] = getCardId(card);
+
+      await user.save();
+
+      const refreshed = buildPingsMessage(user, interaction.user.id);
+
+      return interaction.reply(refreshed);
+    }
   }
 
   // =====================================================
@@ -628,103 +2918,252 @@ client.on('interactionCreate', async interaction => {
   // =====================================================
   if (interaction.isChatInputCommand()) {
 
-    if (interaction.commandName === 'daily') {
-
-    const user = await getOrCreateUser(interaction.user.id);
-
-    const now = new Date();
-    // Convert both times to Brisbane date strings
-    const brisbaneNow = new Date(
-      now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
-    );
-    const today = brisbaneNow.toDateString();
-
-    let lastClaimDate = null;
-
-    if (user.dailyLastClaim) {
-      const brisbaneLastClaim = new Date(
-        new Date(user.dailyLastClaim).toLocaleString("en-US", {
-          timeZone: "Australia/Brisbane"
-        })
-      );
-      lastClaimDate = brisbaneLastClaim.toDateString();
+    if (interaction.commandName === "games") {
+      const user = await getOrCreateUser(interaction.user.id);
+      return showGamesMenu(interaction, user);
     }
 
-    const nextMidnight = new Date(brisbaneNow);
-    nextMidnight.setHours(24, 0, 0, 0);
-    nextMidnight.setHours(nextMidnight.getHours() - 10); // shift 10 hours back
-    const unixReset = Math.floor(nextMidnight.getTime() / 1000);
-
-    // Already claimed today
-    if (lastClaimDate === today) {
+    if (
+      interaction.commandName === "help" ||
+      interaction.commandName === "commands"
+    ) {
       return interaction.reply({
-        content: `🦴 You've already claimed your daily reward!\nResets at <t:${unixReset}:t> (<t:${unixReset}:R>)`,
+        embeds: [buildHelpEmbed("main")],
+        components: [buildHelpButtons(interaction.user.id)],
         flags: 64
       });
     }
-    const maxStreak = 7;
 
-    if (user.dailyLastClaim) {
+    if (interaction.commandName === "index") {
+      const season = interaction.options.getInteger("season");
 
-           // Missed streak window
-      const yesterday = new Date(brisbaneNow);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayString = yesterday.toDateString();
+      const targetUser = interaction.options.getUser("user") || interaction.user;
 
-      if (lastClaimDate !== today && lastClaimDate !== yesterdayString) {
-        user.dailyStreak = 0;
+      const user = await getOrCreateUser(targetUser.id);
+
+      const {
+        seasonCards,
+        ownedCount,
+        totalCount,
+        complete
+      } = getSeasonIndexData(user, season);
+
+      const missingCards = seasonCards.filter(card =>
+        !user.inventory.some(inv =>
+          inv.itemId === getCardId(card) &&
+          inv.quantity > 0
+        )
+      );
+
+      const percent = totalCount === 0
+        ? 0
+        : Math.floor((ownedCount / totalCount) * 100);
+
+      const missingText = missingCards.length === 0
+        ? "None! Index complete."
+        : missingCards
+            .slice(0, 20)
+            .map(card => `❌ \`${getCardId(card)}\` ${card.name}`)
+            .join("\n");
+
+      const rewardText =
+        season === 1
+          ? `👑 Reward: **${findCardById(UNIQUE_UNLOCKS.bibbles.cardId)?.name || "Bibbles"}**`
+          : `👑 Reward: **${findCardById(UNIQUE_UNLOCKS.appl.cardId)?.name || "Appl"}**`;
+
+      const embed = new EmbedBuilder()
+        .setTitle(`📚 ${targetUser.username}'s Season ${season} Index`)
+        .setDescription(
+          `Progress: **${ownedCount}/${totalCount}** cards\n` +
+          `Completion: **${percent}%**\n` +
+          `${complete ? "✅ **Complete!**" : "❌ **Incomplete**"}\n\n` +
+          `${rewardText}\n\n` +
+          `**Missing Cards:**\n${missingText}`
+        )
+        .setColor(complete ? 0x57f287 : 0xf5c542)
+        .setFooter({
+          text: missingCards.length > 20
+            ? `Showing first 20 missing cards. Missing total: ${missingCards.length}`
+            : `Missing total: ${missingCards.length}`
+        });
+
+      return interaction.reply({
+        embeds: [embed]
+      });
+    }
+
+
+    if (interaction.commandName === "achievements") {
+      const targetUser = interaction.options.getUser("user") || interaction.user;
+      const user = await getOrCreateUser(targetUser.id);
+
+      const s1 = getSeasonIndexData(user, 1);
+      const s2 = getSeasonIndexData(user, 2);
+
+      const spent = Math.min(user.bonesSpentTotal || 0, 50000);
+      const blackjack = Math.min(user.blackjack21Count || 0, 10);
+      const boneDig = Math.min(user.boneDigPerfectCount || 0, 10);
+      const coinFlip = Math.min(user.coinFlipPerfectCount || 0, 10);
+
+      const devDone = !!user.highLowReached20;
+
+      const embed = new EmbedBuilder()
+        .setTitle(`🏆 ${targetUser.username}'s Achievements`)
+        .setColor(0xEFBF04)
+        .setDescription(
+          `👑 **Unique Card Progress**\n\n` +
+
+          `${s1.complete ? "✅" : "❌"} **Bibbles**\n` +
+          `Complete Season 1 Index: **${s1.ownedCount}/${s1.totalCount}**\n\n` +
+
+          `${spent >= 50000 ? "✅" : "❌"} **Kev**\n` +
+          `Spend bones: **${spent.toLocaleString()}/50,000**\n\n` +
+
+          `${s2.complete ? "✅" : "❌"} **Appl**\n` +
+          `Complete Season 2 Index: **${s2.ownedCount}/${s2.totalCount}**\n\n` +
+
+          `${coinFlip >= 10 ? "✅" : "❌"} **Game**\n` +
+          `Perfect Coin Flips: **${coinFlip}/10**\n\n` +
+
+          `${blackjack >= 10 ? "✅" : "❌"} **Sinny**\n` +
+          `Blackjack 21s: **${blackjack}/10**\n\n` +
+
+          `${boneDig >= 10 ? "✅" : "❌"} **Fire**\n` +
+          `Bone Dig clears: **${boneDig}/10**\n\n` +
+
+          `${devDone ? "✅" : "❌"} **Dev**\n` +
+          `Reach High/Low streak 20: **${devDone ? "Complete" : "Incomplete"}**`
+        );
+
+      return interaction.reply({
+        embeds: [embed],
+        flags: 64
+      });
+    }
+
+    if (interaction.commandName === 'daily') {
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      const now = new Date();
+      // Convert both times to Brisbane date strings
+      const brisbaneNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
+      );
+      const today = getBrisbaneToday();
+
+      let lastClaimDate = null;
+
+      if (user.dailyLastClaim) {
+        lastClaimDate = new Date(
+          new Date(user.dailyLastClaim).toLocaleString("en-US", { 
+            timeZone: "Australia/Brisbane"
+          })
+        ).toDateString();
       }
-    }
 
-    if (!user.dailyStreak) user.dailyStreak = 0;
+      const nextMidnight = new Date(brisbaneNow);
+      nextMidnight.setHours(24, 0, 0, 0);
+      nextMidnight.setHours(nextMidnight.getHours() - 10); // shift 10 hours back
+      const unixReset = Math.floor(nextMidnight.getTime() / 1000);
 
-    if (user.dailyStreak < maxStreak) {
+      // Already claimed today
+      if (lastClaimDate === today) {
+        return interaction.reply({
+          content: `<:BBones:1518220991938170910> You've already claimed your daily reward!\nResets at <t:${unixReset}:t> (<t:${unixReset}:R>)`,
+          flags: 64
+        });
+      }
+      const maxStreak = 30;
+
+      if (user.dailyLastClaim) {
+
+        // Missed streak window
+        const yesterday = new Date(brisbaneNow);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayString = yesterday.toDateString();
+
+        if (lastClaimDate !== today && lastClaimDate !== yesterdayString) {
+          user.dailyStreak = 0;
+          user.cappedStreak = 0;
+        }
+      }
+
+      if (!user.dailyStreak) user.dailyStreak = 0;
+      if (!user.cappedStreak) user.cappedStreak = 0;
+
+      if (user.cappedStreak < maxStreak) {
+        user.cappedStreak += 1;
+      }
+
+      //Add one to perma streak
       user.dailyStreak += 1;
+
+      const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
+      const streakBonus = user.cappedStreak * 15;
+      const totalReward = baseReward + streakBonus;
+
+      user.bones += totalReward;
+      user.bonesEarnedTotal += totalReward; 
+      user.dailyLastClaim = now;
+
+      await user.save();
+
+      return interaction.reply({
+        content:
+          `<:BBones:1518220991938170910> **Daily Claimed!**\n\n` +
+          `Base: \`${baseReward}\`\n` +
+          `Streak Bonus: \`${streakBonus}\`\n` +
+          `Total Earned: \`${totalReward}\`\n\n` +
+          `🔥 Current Streak: ${user.dailyStreak}/30\n\n` +
+          `💰 **New Balance:** \`${user.bones}\`<:BBones:1518220991938170910>`,
+        flags: 64
+      });
+    }
+    
+    if (interaction.commandName === 'pings') {
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!user.pingCards || user.pingCards.length !== 3) {
+        user.pingCards = [null, null, null];
+        await user.save();
+      }
+
+      const pingsMessage = buildPingsMessage(user, interaction.user.id);
+
+      return interaction.reply(pingsMessage);
     }
 
-    const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
-    const streakBonus = user.dailyStreak * 30;
-    const totalReward = baseReward + streakBonus;
+    if (interaction.commandName === "leaderboard") {
+      await interaction.deferReply();
 
-    user.bones += totalReward;
-    user.dailyLastClaim = now;
+      const type = interaction.options.getString("type");
 
-    await user.save();
+      const payload = await buildLeaderboardPayload(interaction, type, 0);
 
-    return interaction.reply({
-      content:
-        `🦴 **Daily Claimed!**\n\n` +
-        `Base: \`${baseReward}\`\n` +
-        `Streak Bonus: \`${streakBonus}\`\n` +
-        `Total Earned: \`${totalReward}\`\n\n` +
-        `🔥 Current Streak: ${user.dailyStreak}/7\n\n` +
-        `💰 **New Balance:** \`${user.bones}\``,
-      flags: 64
-    });
-  }
+      return interaction.editReply(payload);
+    }
 
+    if (interaction.commandName === 'balance') {
 
+    const targetUser = interaction.options.getUser('user') || interaction.user;
 
-  if (interaction.commandName === 'balance') {
+    const user = await getOrCreateUser(targetUser.id);
 
-  const targetUser = interaction.options.getUser('user') || interaction.user;
+    const balanceEmbed = new EmbedBuilder()
+      .setColor(0xE5C07B)
+      .setTitle('<:BBones:1518220991938170910> Bone Balance <:BBones:1518220991938170910>')
+      .setDescription(`${targetUser}'s balance:`)
+      .addFields(
+        { name: 'Bones', value: `\`${user.bones}\``, inline: true }
+      )
+      .setTimestamp();
 
-  const user = await getOrCreateUser(targetUser.id);
-
-  const balanceEmbed = new EmbedBuilder()
-    .setColor(0xE5C07B)
-    .setTitle('🦴 Bone Balance 🦴')
-    .setDescription(`${targetUser}'s balance:`)
-    .addFields(
-      { name: 'Bones', value: `\`${user.bones}\``, inline: true }
-    )
-    .setTimestamp();
-
-  return interaction.reply({
-    embeds: [balanceEmbed],
-    flags: 64
-  });
-}
+      return interaction.reply({
+        embeds: [balanceEmbed],
+        flags: 64
+      });
+    }
 
 
 
@@ -785,6 +3224,11 @@ client.on('interactionCreate', async interaction => {
         new ButtonBuilder()
           .setCustomId(`inv_APEX_${target.id}_${interaction.user.id}`)
           .setEmoji('💠')
+          .setStyle(ButtonStyle.Secondary),
+        
+        new ButtonBuilder()
+          .setCustomId(`inv_SPECIAL_${target.id}_${interaction.user.id}`)
+          .setEmoji('🌸')
           .setStyle(ButtonStyle.Secondary)
       );
 
@@ -800,9 +3244,182 @@ client.on('interactionCreate', async interaction => {
   // BUTTON INTERACTIONS
   // =====================================================
   if (interaction.isButton()) {
+    
+  // =====================================================
+  // LEADERBOARD BUTTONS
+  // =====================================================
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith("leaderboard_")
+    ) {
+      const parts = interaction.customId.split("_");
+
+      const action = parts[1];
+
+      if (action === "page") return;
+
+      const type = parts[2];
+      let page = Number(parts[3]);
+      const ownerId = parts[4];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "💀 This leaderboard menu isn't yours!",
+          flags: 64
+        });
+      }
+
+      if (action === "prev") page--;
+      if (action === "next") page++;
+
+      const payload =
+        await buildLeaderboardPayload(
+          interaction,
+          type,
+          page
+        );
+
+      return interaction.update(payload);
+    }
+
+
+    // =====================================================
+    // PING SLOT BUTTONS
+    // =====================================================
+    if (interaction.customId.startsWith('pingslot_')) {
+      const parts = interaction.customId.split('_');
+
+      const slotIndex = Number(parts[1]);
+      const ownerId = parts[2];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "This ping menu is not yours.",
+          flags: 64
+        });
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId(`setping_${slotIndex}_${ownerId}`)
+        .setTitle(`Set Ping Slot ${slotIndex + 1}`);
+
+      const cardInput = new TextInputBuilder()
+        .setCustomId('card_id')
+        .setLabel('Enter the Card ID')
+        .setPlaceholder('Example: c1, e4, s12')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+
+      const row = new ActionRowBuilder().addComponents(cardInput);
+      modal.addComponents(row);
+
+
+      return interaction.showModal(modal);
+    }
+
+    if (interaction.customId.startsWith('clearping_')) {
+      const parts = interaction.customId.split('_');
+
+      const slotIndex = Number(parts[1]);
+      const ownerId = parts[2];
+
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({
+          content: "This ping menu is not yours.",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!user.pingCards || user.pingCards.length !== 3) {
+        user.pingCards = [null, null, null];
+      }
+
+      user.pingCards[slotIndex] = null;
+
+      await user.save();
+
+      const refreshed = buildPingsMessage(user, interaction.user.id);
+
+      return interaction.update({
+        embeds: refreshed.embeds,
+        components: refreshed.components
+      });
+    }
+
+
+
+    // =====================================================
+    // REFUND BUTTON 
+    // =====================================================
+    if (interaction.customId.startsWith('refund_')) {
+      const parts = interaction.customId.split('_');
+
+      const buyerId = parts[1];
+      const cardId = parts[2];
+      const refundPrice = Number(parts[3]);
+
+      if (interaction.user.id !== buyerId) {
+        return interaction.reply({
+          content: "👹This refund button is not for you.",
+          flags: 64
+        });
+      }
+
+      const user = await getOrCreateUser(interaction.user.id);
+
+      if (!canUseRefund(user)) {
+        return interaction.reply({
+          content: "<:BBones:1518220991938170910> You've already used your daily refund bestie. Refund resets at same time as daily!",
+          flags: 64
+        });
+      }
+
+      const ownedCard = user.inventory.find(i => i.itemId === cardId);
+
+      if (!ownedCard || ownedCard.quantity <= 0) {
+        return interaction.reply({
+          content: "<:BBones:1518220991938170910>You don't own this card anymore, so it can't be refunded.",
+          flags: 64
+        });
+      }
+
+      
+
+      ownedCard.quantity -= 1;
+
+      if (ownedCard.quantity <= 0) {
+        user.inventory = user.inventory.filter(i => i.itemId !== cardId);
+      }
+
+      user.bones += refundPrice;
+      user.bonesSpentTotal -= refundPrice;
+      user.lastRefundAt = new Date();
+
+      await user.save();
+
+      return interaction.update({
+        content: `Refunded! You received \`${refundPrice}\` <:BBones:1518220991938170910> back.`,
+        embeds: [],
+        components: []
+      });   
+      
+      const blockedRarities = ['APEX', 'UNIQUE', 'EVENT'];
+
+      if (blockedRarities.includes(card.rarity)) {
+        return interaction.reply({
+          content: `📡 ${card.rarity} cards cannot be tracked.`,
+          flags: 64
+        });
+      }
+    }
+
+
+
 
     if (interaction.customId.startsWith('inv_list_prev_') ||
-      interaction.customId.startsWith('inv_list_next_')) {
+    interaction.customId.startsWith('inv_list_next_')) {
 
       const parts = interaction.customId.split('_');
 
@@ -821,17 +3438,17 @@ client.on('interactionCreate', async interaction => {
       const user = await User.findOne({ userId: ownerId });
       if (!user) return;
 
-      const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
+      const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX', 'UNIQUE', 'EVENT'];
       const allCards = Object.values(cards).flat();
 
       const sortedInventory = user.inventory
         .map(invItem => {
-          const cardData = allCards.find(c => c.id === invItem.itemId);
+          const cardData = allCards.find(c => getCardId(c) === invItem.itemId);
           if (!cardData) return null;
 
           let rarityKey = null;
           for (const key of Object.keys(cards)) {
-            if (cards[key].some(c => c.id === invItem.itemId)) {
+            if (cards[key].some(c => getCardId(c) === invItem.itemId)) {
               rarityKey = key;
               break;
             }
@@ -851,8 +3468,14 @@ client.on('interactionCreate', async interaction => {
           if (rarityCompare !== 0) return rarityCompare;
 
           // Same rarity → sort by numeric ID
-          const aNum = parseInt(a.id.replace(/^\D+/g, ''));
-          const bNum = parseInt(b.id.replace(/^\D+/g, ''));
+          const aData = getInventorySortData(getCardId(a));
+          const bData = getInventorySortData(getCardId(b));
+
+          if (aData.season !== bData.season) {
+            return aData.season - bData.season;
+          }
+
+          return aData.number - bData.number;
 
           return aNum - bNum;
         });
@@ -882,7 +3505,7 @@ client.on('interactionCreate', async interaction => {
         const rarityEmoji = rarities[card.rarity].emoji;
         embed.addFields({
           name: `${rarityEmoji} ${card.name}`,
-          value: `ID: \`${card.id}\` • Qty: \`${card.quantity}\``,
+          value: `SN: \`${card.season}\` • ID: \`${getCardId(card)}\` • Qty: \`${card.quantity}\``,
           inline: false
         });
       });
@@ -911,248 +3534,113 @@ client.on('interactionCreate', async interaction => {
     }
 
 
-// =============================
-// PAGINATION (ARROWS)
-// =============================
-if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsWith('inv_prev_')) {
+    // =============================
+    // PAGINATION (ARROWS)
+    // =============================
+    if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsWith('inv_prev_')) {
 
-  const parts = interaction.customId.split('_');
+      const parts = interaction.customId.split('_');
 
-  const direction = parts[1]; // next or prev
-  const rarity = parts[2];
-  const currentIndex = parseInt(parts[3]);
-  const ownerId = parts[4];
-  const viewerId = parts[5];
-
-
-  if (interaction.user.id !== viewerId) {
-    return interaction.reply({
-      content: "This is not your inventory.",
-      flags: 64
-    });
-  }
-  const user = await User.findOne({ userId: ownerId });
-
-  if (!user) {
-    return interaction.reply({
-      content: "No inventory found.",
-      flags: 64
-    });
-  }
-
-  const ownedCards = user.inventory.filter(invItem =>
-    cards[rarity].some(c => c.id === invItem.itemId)
-  );
-
-  ownedCards.sort((a, b) => {
-    const numA = parseInt(a.itemId.replace(/^\D+/g, ''));
-    const numB = parseInt(b.itemId.replace(/^\D+/g, ''));
-    return numA - numB;
-  });
-
-  if (ownedCards.length === 0) {
-    return interaction.reply({
-      content: "No cards found.",
-      flags: 64
-    });
-  }
-
-  let newIndex = currentIndex;
-
-  if (direction === 'next') {
-    newIndex++;
-    if (newIndex >= ownedCards.length) newIndex = 0; // loop
-  }
-
-  if (direction === 'prev') {
-    newIndex--;
-    if (newIndex < 0) newIndex = ownedCards.length - 1; // loop
-  }
-
-  const cardId = ownedCards[newIndex].itemId;
-  const cardData = cards[rarity].find(c => c.id === cardId);
-
-  const embed = new EmbedBuilder()
-    .setColor(rarities[rarity].color)
-    .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
-    .setDescription(`**${cardData.name}**\nID: \`${cardData.id}\`\nQty: \`${ownedCards[newIndex].quantity}\``)
-    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${cardData.id}.png?v=${BOT_VERSION}`)
-    .setFooter({ text: `Page ${newIndex + 1} of ${ownedCards.length}` });
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`inv_prev_${rarity}_${newIndex}_${ownerId}_${viewerId}`)
-      .setLabel('◀')
-      .setStyle(ButtonStyle.Secondary),
-
-    new ButtonBuilder()
-      .setCustomId(`inv_next_${rarity}_${newIndex}_${ownerId}_${viewerId}`)
-      .setLabel('▶')
-      .setStyle(ButtonStyle.Secondary),
-
-    new ButtonBuilder()
-      .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
-      .setLabel('Return')
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  return interaction.update({
-    embeds: [embed],
-    components: [row]
-  });
-}
+      const direction = parts[1]; // next or prev
+      const rarity = parts[2];
+      const currentIndex = parseInt(parts[3]);
+      const ownerId = parts[4];
+      const viewerId = parts[5];
 
 
-    // -----------------------------------------------------
-    // BUY BUTTONS
-    // -----------------------------------------------------
-    if (interaction.customId.startsWith('buy_')) {
-
-      const cardId = interaction.customId.replace('buy_', '');
-
-      const allCards = Object.values(cards).flat();
-      const card = allCards.find(c => c.id === cardId);
-
-      if (!card) {
-        return interaction.reply({ content: "Card not found.", flags: 64 });
+      if (interaction.user.id !== viewerId) {
+        return interaction.reply({
+          content: "This is not your inventory.",
+          flags: 64
+        });
       }
+      const user = await User.findOne({ userId: ownerId });
 
-      const user = await getOrCreateUser(interaction.user.id);
-
-      if (user.bones < card.price) {
-        return interaction.reply({ content: "You don't have enough Bones!", flags: 64 });
-      }
-
-      user.bones -= card.price;
-
-      const existingCard = user.inventory.find(i => i.itemId === card.id);
-
-      if (existingCard) {
-        existingCard.quantity += 1;
-      } else {
-        user.inventory.push({
-          itemId: card.id,
-          quantity: 1
+      if (!user) {
+        return interaction.reply({
+          content: "No inventory found.",
+          flags: 64
         });
       }
 
-      await user.save();
+      const specialRarities = ["UNIQUE", "EVENT"];
 
-      const purchaseEmbed = new EmbedBuilder()
-        .setColor(rarities[card.rarity.toUpperCase()].color)
-        .setTitle("🛒 Purchase Successful!")
+      const ownedCards = user.inventory.filter(invItem => {
+        if (rarity === "SPECIAL") {
+          return specialRarities.some(specialRarity =>
+            cards[specialRarity]?.some(c => getCardId(c) === invItem.itemId)
+          );
+        }
+
+        return cards[rarity]?.some(c => getCardId(c) === invItem.itemId);
+      });
+
+      ownedCards.sort(sortInventoryCards);
+
+      if (ownedCards.length === 0) {
+        return interaction.reply({
+          content: "No cards found.",
+          flags: 64
+        });
+      }
+
+      let newIndex = currentIndex;
+
+      if (direction === 'next') {
+        newIndex++;
+        if (newIndex >= ownedCards.length) newIndex = 0; // loop
+      }
+
+      if (direction === 'prev') {
+        newIndex--;
+        if (newIndex < 0) newIndex = ownedCards.length - 1; // loop
+      }
+
+      const cardId = ownedCards[newIndex].itemId;
+      const allCards = Object.values(cards).flat();
+      const cardData = allCards.find(c => getCardId(c) === cardId);
+
+      if (!cardData) {
+        return interaction.reply({
+          content: `Could not find card data for \`${cardId}\`.`,
+          flags: 64
+        });
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(rarities[rarity].color)
+        .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
         .setDescription(
-          `You bought **${card.name}** for \`${card.price}\` Bones.\n\n` +
-          `🦴 **Remaining Balance:** \`${user.bones}\``
+          `**${cardData.name}**\n` +
+          `SN: \`${cardData.season}\`\n` +
+          `ID: \`${getCardId(cardData)}\`\n` +
+          `Qty: \`${ownedCards[newIndex].quantity}\``
         )
-        .setThumbnail(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${card.id}.png?v=${BOT_VERSION}`)
-        .setTimestamp();
+        .setFooter({ text: `Page ${newIndex + 1} of ${ownedCards.length}` });
 
-      return interaction.reply({
-        embeds: [purchaseEmbed],
-        flags: 64
-      });
+      let files = [];
 
-    }
+      if (OFFLINE_IMAGES) {
+        const fileName = getCardImageFileName(cardData);
 
-    // -----------------------------------------------------
-    // INVENTORY BUTTONS
-    // -----------------------------------------------------
-    if (interaction.customId.startsWith('inv_')) {
-
-  const parts = interaction.customId.split('_');
-
-  const action = parts[1];      // list / COMMON / EPIC etc
-  const ownerId = parts[2];
-  const viewerId = parts[3];
-
-  if (interaction.user.id !== viewerId) {
-    return interaction.reply({
-      content: "This is not your inventory.",
-      flags: 64
-    });
-  }
-
-  const user = await User.findOne({ userId: ownerId });
-
-  if (!user) {
-    return interaction.reply({ content: "No inventory found.", flags: 64 });
-  }
-
-
-      // LIST VIEW
-    if (action === 'list') {
-
-      const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
-      const allCards = Object.values(cards).flat();
-
-      const sortedInventory = user.inventory
-        .map(invItem => {
-          const cardData = allCards.find(c => c.id === invItem.itemId);
-          if (!cardData) return null;
-
-          let rarityKey = null;
-          for (const key of Object.keys(cards)) {
-            if (cards[key].some(c => c.id === invItem.itemId)) {
-              rarityKey = key;
-              break;
-            }
-          }
-
-          return {
-            ...cardData,
-            quantity: invItem.quantity,
-            rarity: rarityKey
-          };
-        })
-        .filter(Boolean)
-        .sort((a, b) => {
-          const rarityCompare =
-            rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
-
-          if (rarityCompare !== 0) return rarityCompare;
-
-          const aNum = parseInt(a.id.replace(/^\D+/g, ''));
-          const bNum = parseInt(b.id.replace(/^\D+/g, ''));
-          return aNum - bNum;
+        const attachment = new AttachmentBuilder(getCardImagePath(cardData), {
+          name: fileName
         });
 
-      if (sortedInventory.length === 0) {
-        return interaction.reply({ content: "Inventory empty.", flags: 64 });
+        embed.setImage(`attachment://${fileName}`);
+        files.push(attachment);
+      } else {
+        embed.setImage(getCardImageUrl(cardData));
       }
-
-      const perPage = 10;
-      const totalPages = Math.ceil(sortedInventory.length / perPage);
-      const page = 0;
-
-      const start = page * perPage;
-      const end = start + perPage;
-      const pageItems = sortedInventory.slice(start, end);
-
-      const ownerUser = await client.users.fetch(ownerId);
-
-      const listEmbed = new EmbedBuilder()
-        .setColor(0x2B2D31)
-        .setTitle(`📜 ${ownerUser.username}'s Cards`)
-        .setFooter({ text: `Page ${page + 1} of ${totalPages}` });
-
-      pageItems.forEach(card => {
-        const rarityEmoji = rarities[card.rarity].emoji;
-        listEmbed.addFields({
-          name: `${rarityEmoji} ${card.name}`,
-          value: `ID: \`${card.id}\` • Qty: \`${card.quantity}\``,
-          inline: false
-        });
-      });
-
+      
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`inv_list_prev_${page}_${ownerId}_${viewerId}`)
+          .setCustomId(`inv_prev_${rarity}_${newIndex}_${ownerId}_${viewerId}`)
           .setLabel('◀')
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-          .setCustomId(`inv_list_next_${page}_${ownerId}_${viewerId}`)
+          .setCustomId(`inv_next_${rarity}_${newIndex}_${ownerId}_${viewerId}`)
           .setLabel('▶')
           .setStyle(ButtonStyle.Secondary),
 
@@ -1163,92 +3651,329 @@ if (interaction.customId.startsWith('inv_next_') || interaction.customId.startsW
       );
 
       return interaction.update({
-        embeds: [listEmbed],
-        components: [row]
+        embeds: [embed],
+        components: [row],
+        files
       });
     }
 
 
-// RARITY VIEW
-const rarityKeys = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX'];
+    // =========================================
+    // BUY BUTTONS
+    // =========================================
+    if (interaction.customId.startsWith('buy_')) {
+      const parts = interaction.customId.split('_');
 
-for (const rarity of rarityKeys) {
-  if (action === rarity) {
+      const cardId = parts[1];
+      const quantity = Number(parts[2] || 1);
 
-    const ownedCards = user.inventory.filter(invItem =>
-      cards[rarity].some(c => c.id === invItem.itemId)
-    );
+      const card = findCardById(cardId);
 
-    ownedCards.sort((a, b) => {
-      const numA = parseInt(a.itemId.replace(/^\D+/g, ''));
-      const numB = parseInt(b.itemId.replace(/^\D+/g, ''));
-      return numA - numB;
-    });
+      if (!card) {
+        return interaction.reply({ content: "Card not found.", flags: 64 });
+      }
 
+      if (![1, 2, 5].includes(quantity)) {
+        return interaction.reply({ content: "Invalid quantity.", flags: 64 });
+      }
 
-    if (ownedCards.length === 0) {
+      const user = await getOrCreateUser(interaction.user.id);
 
-      const ownerUser = await client.users.fetch(ownerId);
+      const totalPrice = card.price * quantity;
 
-      const emptyEmbed = new EmbedBuilder()
-        .setColor(0x2B2D31)
-        .setTitle(`📦 ${ownerUser.username}'s Card Collection`)
+      if (user.bones < totalPrice) {
+        return interaction.reply({
+          content: `You don't have enough <:BBones:1518220991938170910>! You need **${totalPrice}**.`,
+          flags: 64
+        });
+      }
+
+      user.bones -= totalPrice;
+      user.bonesSpentTotal += totalPrice;
+
+      const fullCardId = getCardId(card);
+      const existingCard = user.inventory.find(i => i.itemId === fullCardId);
+
+      if (existingCard) {
+        existingCard.quantity += quantity;
+      } else {
+        user.inventory.push({
+          itemId: fullCardId,
+          quantity
+        });
+      }
+
+      await user.save();
+
+      const unlockEmbeds = await checkUnlocks(user, interaction.user);
+
+      const purchaseEmbed = new EmbedBuilder()
+        .setColor(rarities[card.rarity.toUpperCase()].color)
+        .setTitle("🛒 Purchase Successful!")
         .setDescription(
-          `❌ ${ownerUser.username} doesn't own any ${rarities[rarity].name} cards.`
+          `You bought **${quantity}x ${card.name}** for \`${totalPrice}\` <:BBones:1518220991938170910>.\n\n` +
+          `<:BBones:1518220991938170910> **Remaining Balance:** \`${user.bones}\``
         )
         .setTimestamp();
 
-      const row = new ActionRowBuilder().addComponents(
+      let files = [];
+
+      if (OFFLINE_IMAGES) {
+        const fileName = getCardImageFileName(card);
+
+        const attachment = new AttachmentBuilder(
+          getCardImagePath(card),
+          { name: fileName }
+        );
+
+        purchaseEmbed.setImage(`attachment://${fileName}`);
+        files.push(attachment);
+      } else {
+        purchaseEmbed.setImage(getCardImageUrl(card));
+      }
+
+      const refundRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
-          .setLabel('Return')
+          .setCustomId(`refund_${interaction.user.id}_${fullCardId}_${totalPrice}_${quantity}`)
+          .setLabel('Refund')
           .setStyle(ButtonStyle.Danger)
       );
 
-      return interaction.update({
-        embeds: [emptyEmbed],
-        components: [row]
+      const embeds = [purchaseEmbed];
+
+      embeds.push(...unlockEmbeds);
+
+      return interaction.reply({
+        embeds,
+        components: [refundRow],
+        files,
+        flags: 64
       });
     }
 
+        
 
-    const firstCardId = ownedCards[0].itemId;
-    const cardData = cards[rarity].find(c => c.id === firstCardId);
 
-    const embed = new EmbedBuilder()
-    .setColor(rarities[rarity].color)
-    .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
-    .setDescription(
-      `**${cardData.name}**\n` +
-      `ID: \`${cardData.id}\`\n` +
-      `Qty: \`${ownedCards[0].quantity}\``
-    )
-    .setImage(`https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/${cardData.id}.png?v=${BOT_VERSION}`)
-    .setFooter({ text: `Page 1 of ${ownedCards.length}` });
+    // -----------------------------------------------------
+    // INVENTORY BUTTONS
+    // -----------------------------------------------------
+    if (interaction.customId.startsWith('inv_')) {
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`inv_prev_${rarity}_0_${ownerId}_${viewerId}`)
-        .setLabel('◀')
-        .setStyle(ButtonStyle.Secondary),
+      const parts = interaction.customId.split('_');
 
-      new ButtonBuilder()
-        .setCustomId(`inv_next_${rarity}_0_${ownerId}_${viewerId}`)
-        .setLabel('▶')
-        .setStyle(ButtonStyle.Secondary),
+      const action = parts[1];      // list / COMMON / EPIC etc
+      const ownerId = parts[2];
+      const viewerId = parts[3];
 
-      new ButtonBuilder()
-        .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
-        .setLabel('Return')
-        .setStyle(ButtonStyle.Danger)
-    );
+      if (interaction.user.id !== viewerId) {
+        return interaction.reply({
+          content: "This is not your inventory.",
+          flags: 64
+        });
+      }
 
-    return interaction.update({
-      embeds: [embed],
-      components: [row]
-    });
-  }
-}
+      const user = await User.findOne({ userId: ownerId });
+
+      if (!user) {
+        return interaction.reply({ content: "No inventory found.", flags: 64 });
+      }
+
+
+      // LIST VIEW
+      if (action === 'list') {
+
+        const rarityOrder = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX', 'UNIQUE', 'EVENT'];
+        const allCards = Object.values(cards).flat();
+
+        const sortedInventory = user.inventory
+          .map(invItem => {
+            const cardData = allCards.find(c => getCardId(c) === invItem.itemId);
+            if (!cardData) return null;
+
+            let rarityKey = null;
+            for (const key of Object.keys(cards)) {
+              if (cards[key].some(c => getCardId(c) === invItem.itemId)) {
+                rarityKey = key;
+                break;
+              }
+            }
+
+            return {
+              ...cardData,
+              quantity: invItem.quantity,
+              rarity: rarityKey
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => {
+            const rarityCompare =
+              rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
+
+            if (rarityCompare !== 0) return rarityCompare;
+
+            const aData = getInventorySortData(getCardId(a));
+            const bData = getInventorySortData(getCardId(b));
+
+            if (aData.season !== bData.season) {
+              return aData.season - bData.season;
+            }
+
+            return aData.number - bData.number;
+          });
+
+        if (sortedInventory.length === 0) {
+          return interaction.reply({ content: "Inventory empty.", flags: 64 });
+        }
+
+        const perPage = 10;
+        const totalPages = Math.ceil(sortedInventory.length / perPage);
+        const page = 0;
+
+        const start = page * perPage;
+        const end = start + perPage;
+        const pageItems = sortedInventory.slice(start, end);
+
+        const ownerUser = await client.users.fetch(ownerId);
+
+        const listEmbed = new EmbedBuilder()
+          .setColor(0x2B2D31)
+          .setTitle(`📜 ${ownerUser.username}'s Cards`)
+          .setFooter({ text: `Page ${page + 1} of ${totalPages}` });
+
+        pageItems.forEach(card => {
+          const rarityEmoji = rarities[card.rarity].emoji;
+          listEmbed.addFields({
+            name: `${rarityEmoji} ${card.name}`,
+            value: `SN: \`${card.season}\` • ID: \`${getCardId(card)}\` • Qty: \`${card.quantity}\``,
+            inline: false
+          });
+        });
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`inv_list_prev_${page}_${ownerId}_${viewerId}`)
+            .setLabel('◀')
+            .setStyle(ButtonStyle.Secondary),
+
+          new ButtonBuilder()
+            .setCustomId(`inv_list_next_${page}_${ownerId}_${viewerId}`)
+            .setLabel('▶')
+            .setStyle(ButtonStyle.Secondary),
+
+          new ButtonBuilder()
+            .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
+            .setLabel('Return')
+            .setStyle(ButtonStyle.Danger)
+        );
+
+        return interaction.update({
+          embeds: [listEmbed],
+          components: [row]
+        });
+      }
+
+
+      // RARITY VIEW
+      const rarityKeys = ['COMMON', 'EPIC', 'SECRET', 'NIGHTMARE', 'APEX', 'SPECIAL'];
+
+      for (const rarity of rarityKeys) {
+        if (action === rarity) {
+
+          const specialRarities = ['UNIQUE', 'EVENT'];
+
+          const ownedCards = user.inventory.filter(invItem => {
+            if (rarity === 'SPECIAL') {
+              return specialRarities.some(specialRarity =>
+                cards[specialRarity]?.some(c => getCardId(c) === invItem.itemId)
+              );
+            }
+
+            return cards[rarity]?.some(c => getCardId(c) === invItem.itemId);
+          });
+
+          ownedCards.sort(sortInventoryCards);
+
+
+          if (ownedCards.length === 0) {
+
+            const ownerUser = await client.users.fetch(ownerId);
+
+            const emptyEmbed = new EmbedBuilder()
+              .setColor(0x2B2D31)
+              .setTitle(`📦 ${ownerUser.username}'s Card Collection`)
+              .setDescription(
+                `❌ ${ownerUser.username} doesn't own any ${rarities[rarity].name} cards.`
+              )
+              .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
+                .setLabel('Return')
+                .setStyle(ButtonStyle.Danger)
+            );
+
+            return interaction.update({
+              embeds: [emptyEmbed],
+              components: [row]
+            });
+          }
+
+
+          const firstCardId = ownedCards[0].itemId;
+          const allCards = Object.values(cards).flat();
+          const cardData = allCards.find(c => getCardId(c) === firstCardId);
+
+          const embed = new EmbedBuilder()
+          .setColor(rarities[rarity].color)
+          .setTitle(`${rarities[rarity].emoji} ${rarities[rarity].name} ${rarities[rarity].emoji}`)
+          .setDescription(
+            `**${cardData.name}**\n` +
+            `SN: \`${cardData.season}\`\n` +
+            `ID: \`${getCardId(cardData)}\`\n` +
+            `Qty: \`${ownedCards[0].quantity}\``
+          )
+          .setFooter({ text: `Page 1 of ${ownedCards.length}` });
+
+          let files = [];
+
+          if (OFFLINE_IMAGES) {
+            const fileName = getCardImageFileName(cardData);
+
+            const attachment = new AttachmentBuilder(getCardImagePath(cardData), {
+              name: fileName
+            });
+
+            embed.setImage(`attachment://${fileName}`);
+            files.push(attachment);
+          } else {
+            embed.setImage(getCardImageUrl(cardData));
+          }
+
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`inv_prev_${rarity}_0_${ownerId}_${viewerId}`)
+              .setLabel('◀')
+              .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+              .setCustomId(`inv_next_${rarity}_0_${ownerId}_${viewerId}`)
+              .setLabel('▶')
+              .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+              .setCustomId(`inv_menu_${ownerId}_${viewerId}`)
+              .setLabel('Return')
+              .setStyle(ButtonStyle.Danger)
+          );
+
+          return interaction.update({
+            embeds: [embed],
+            components: [row],
+            files
+          });
+        }
+      }
 
 
       // RETURN TO MENU
@@ -1292,16 +4017,22 @@ for (const rarity of rarityKeys) {
           new ButtonBuilder()
             .setCustomId(`inv_APEX_${ownerId}_${viewerId}`)
             .setEmoji('💠')
+            .setStyle(ButtonStyle.Secondary),
+          
+          new ButtonBuilder()
+            .setCustomId(`inv_SPECIAL_${ownerId}_${viewerId}`)
+            .setEmoji('🌸')
             .setStyle(ButtonStyle.Secondary)
         );
 
         return interaction.update({
           embeds: [inventoryEmbed],
-          components: [row1, row2]
+          components: [row1, row2],
+          files: [],
+          attatchments: []
         });
       }
 
-      }
+    }
   }
-
 });

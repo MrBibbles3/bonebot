@@ -20,9 +20,24 @@ const rarities = {
     emoji: "⬛"
   },
   APEX: {
-    name: "APEX",
+    name: "Apex",
     color: 0xF59E0B,
     emoji: "💠"
+  },
+  UNIQUE: {
+    name: "Unique",
+    color: 0xEFBF04,
+    emoji: "👑"
+  },
+  EVENT: {
+    name: "Event",
+    color: 0xFC80CA,
+    emoji: "🌸"
+  },
+   SPECIAL: {
+    name: "Special",
+    color: 0xFC80CA,
+    emoji: "🌸"
   }
 };
 

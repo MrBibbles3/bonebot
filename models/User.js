@@ -22,6 +22,85 @@ const userSchema = new mongoose.Schema({
         default: 0
     },
 
+    cappedStreak: {
+        type: Number,
+        default: 0
+    },
+
+    lastRefundAt: {
+        type: Date,
+        default: null
+    },
+
+    pingCards: {
+        type: [String],
+        default: [null, null, null]
+    },
+
+    bibblesTokens: {
+        type: Number,
+        default: 5
+    },
+
+    lastGlobalTokenDaily: {
+        type: String,
+        default: null
+    },
+
+    lastBibblesTokenRecharge: {
+        type: Date,
+        default: Date.now
+    },
+
+    highlowBestStreak: {
+        type: Number,
+        default: 0
+    },
+
+    dailyPingEnabled: {
+        type: Boolean,
+        default: false
+    },
+
+    bonesEarnedTotal: {
+        type: Number,
+        default: 0
+    },
+
+    bonesSpentTotal: {
+        type: Number,
+        default: 0
+    },
+
+    blackjack21Count: {
+        type: Number,
+        default: 0
+    },
+
+    boneDigPerfectCount: {
+        type: Number,
+        default: 0
+    },
+
+    highLowReached20: {
+        type: Boolean,
+        default: false
+    },
+
+    coinFlipPerfectCount: {
+        type: Number,
+        default: 0
+    },
+    
+    uniqueUnlocks: {
+        kevSpend: { type: Boolean, default: false },
+        season1Index: { type: Boolean, default: false },
+        blackjack21s: { type: Number, default: 0 },
+        boneDigClears: { type: Number, default: 0 },
+        coinFlipPerfects: { type: Number, default: 0 },
+        season2Index: { type: Boolean, default: false },
+        highLowMaxStreaks: { type: Number, default: 0 }
+    },
 
     inventory: [
     {
