@@ -11,7 +11,7 @@ let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
 const BOT_VERSION = "2.11";
-const IMAGE_COMMIT = "367d596"; // replace with newest git log --oneline
+const IMAGE_COMMIT = "26f767b"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471357861526241350',
   '1470496897721565419'
@@ -346,7 +346,7 @@ function getCardId(card) {
 }
 
 function getCardImageUrl(card) {
-  return `https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot-test@${IMAGE_COMMIT}/images/S${card.season}/${getCardImageFileName(card)}?v=${BOT_VERSION}`;
+  return `https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/S${card.season}/${getCardImageFileName(card)}?v=${BOT_VERSION}`;
 }
 
 function findCardById(cardId) {
@@ -366,7 +366,7 @@ function getCardImagePath(card) {
 }
 
 function getCardImageUrl(card) {
-  return `https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot-test@${IMAGE_COMMIT}/images/S${card.season}/${getCardImageFileName(card)}?v=${BOT_VERSION}`;
+  return `https://cdn.jsdelivr.net/gh/MrBibbles3/bonebot@${IMAGE_COMMIT}/images/S${card.season}/${getCardImageFileName(card)}?v=${BOT_VERSION}`;
 }
 
 function getInventorySortData(itemId) {
