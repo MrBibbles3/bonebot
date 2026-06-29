@@ -10,11 +10,11 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "2.11";
+const BOT_VERSION = "2.2";
 const IMAGE_COMMIT = "26f767b"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
-  '1471357861526241350',
-  '1470496897721565419'
+  '1471356398989480103',
+  '1471356531009130701'
 ];
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
@@ -536,7 +536,7 @@ function buildHelpEmbed(section = "main") {
 
         `I *(MrBibbles)* have spent months working on this project on and off to prove to myself that I could!\n\n` +
 
-        `I've always wanted a real-life card collecting game, and this is **my game**. ❤️\n\n` +
+        `I've always wanted a real-life card collecting game, and this is **my game**. <a:Jiggy:1416708165705273495>\n\n` +
 
         `More features will continue to be added whenever I have spare time, including more advanced web-based games.\n\n` +
 
@@ -1174,7 +1174,7 @@ async function sendDailyResetPings(force = false) {
         `Your **/daily** reward is ready to claim here https://discord.com/channels/1393315074235699200/1471356531009130701 !`
       );
     } catch (err) {
-      console.log(`Could not send daily ping to ${userData.userId}: ${err.message}`);
+      //1111 console.log(`Could not send daily ping to ${userData.userId}: ${err.message}`);
     }
   }
 
@@ -2220,7 +2220,7 @@ client.on('messageCreate', async (message) => {
 
   await user.save();
 
-  console.log(`${message.author.username} earned ${bonesEarned} <:BBones:1518220991938170910> and now has ${user.bones}`);
+  //1111 console.log(`${message.author.username} earned ${bonesEarned} <:BBones:1518220991938170910> and now has ${user.bones}`);
 });
 
 
@@ -2385,7 +2385,7 @@ client.on('interactionCreate', async interaction => {
     // BIBBLES GAME BUTTONS
     // =====================================================
     if (interaction.isButton() && interaction.customId.startsWith("game_")) {
-      console.log("Game button clicked:", interaction.customId);
+      // 1111 console.log("Game button clicked:", interaction.customId);
 
       const parts = interaction.customId.split("_");
       const gameName = parts[1];
