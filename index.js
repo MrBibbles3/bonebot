@@ -172,7 +172,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('daily')
-    .setDescription('Claim your daily <:BBones:1518220991938170910> reward'),
+    .setDescription('Claim your daily <:BBones:1520540942682030111> reward'),
 
   new SlashCommandBuilder()
     .setName("index")
@@ -404,7 +404,7 @@ function buildHelpEmbed(section = "main") {
 
       `BoneBot provides a shop where you can purchase cards for your collection! These cards feature **MrBibbles' Server characters (real users)** and **inside jokes** that have happened throughout the server's lifespan.\n\n` +
 
-      `Purchase cards in <#1471356398989480103> using **BONES** <:BBones:1518220991938170910>, which you earn by:\n` +
+      `Purchase cards in <#1471356398989480103> using **BONES** <:BBones:1520540942682030111>, which you earn by:\n` +
       `• 💬 Chatting\n` +
       `• 📅 Claiming your Daily Reward\n` +
       `• 🎮 Playing Games\n\n` +
@@ -437,7 +437,7 @@ function buildHelpEmbed(section = "main") {
     embed
       .setTitle("1️⃣ How to get Bones")
       .setDescription(
-        `**Bones** <:BBones:1518220991938170910> are the main currency BoneBot runs on!\n\n` +
+        `**Bones** <:BBones:1520540942682030111> are the main currency BoneBot runs on!\n\n` +
 
         `You can earn Bones by:\n` +
         `• 💬 Sending messages anywhere in the server *(30 second cooldown)*\n` +
@@ -629,7 +629,7 @@ async function spendBibblesToken2(user) {
 
 async function startCoinFlip(interaction, bet) {
   const embed = new EmbedBuilder()
-    .setTitle("<:BToken:1518219006392274995> Coin Flip")
+    .setTitle("<:BToken:1520541024978473100> Coin Flip")
     .setDescription(
       `Bet: **${bet} bones**\n\n` +
       "You get **3 flips**.\n" +
@@ -645,13 +645,13 @@ async function startCoinFlip(interaction, bet) {
     new ButtonBuilder()
       .setCustomId(`coinflip_heads_${interaction.user.id}_3_0_${bet}`)
       .setLabel("Heads")
-      .setEmoji("<:BHeads:1519545907920765028>")
+      .setEmoji("<:BHeads:1520541089843384430>")
       .setStyle(ButtonStyle.Secondary),
 
     new ButtonBuilder()
       .setCustomId(`coinflip_tails_${interaction.user.id}_3_0_${bet}`)
       .setLabel("Tails")
-      .setEmoji("<:BTails:1519545923632631879>")
+      .setEmoji("<:BTails:1520541144369463467>")
       .setStyle(ButtonStyle.Danger)
   );
 
@@ -663,7 +663,7 @@ async function startCoinFlip(interaction, bet) {
 
 async function showCoinFlipBetMenu(interaction, user) {
   const embed = new EmbedBuilder()
-    .setTitle("<:BToken:1518219006392274995> Coin Flip")
+    .setTitle("<:BToken:1520541024978473100> Coin Flip")
     .setDescription(
       "You used **1 Bibbles Token**.\n\n" +
       "Choose your bet:\n\n" +
@@ -672,7 +672,7 @@ async function showCoinFlipBetMenu(interaction, user) {
       "Get all **3/3** for a bonus **+1x your bet**!"
     )
     .addFields(
-      { name: "Your Bones", value: `${user.bones} <:BBones:1518220991938170910>`, inline: true }
+      { name: "Your Bones", value: `${user.bones} <:BBones:1520540942682030111>`, inline: true }
     )
     .setColor(0xf5c542);
 
@@ -681,7 +681,7 @@ async function showCoinFlipBetMenu(interaction, user) {
       new ButtonBuilder()
         .setCustomId(`coinflip_bet_${bet}_${interaction.user.id}`)
         .setLabel(`Bet ${bet}`)
-        .setEmoji("<:BBones:1518220991938170910>")
+        .setEmoji("<:BBones:1520540942682030111>")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(user.bones < bet)
     )
@@ -704,7 +704,7 @@ async function showGraveRobberyBetMenu(interaction, user) {
       "Each grave has either **treasure** or a **curse**."
     )
     .addFields(
-      { name: "Your Bones", value: `${user.bones} <:BBones:1518220991938170910>`, inline: true }
+      { name: "Your Bones", value: `${user.bones} <:BBones:1520540942682030111>`, inline: true }
     )
     .setColor(0x7b3f00);
 
@@ -713,7 +713,7 @@ const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`graverobbery_bet_${bet}_${interaction.user.id}`)
         .setLabel(`Bet ${bet}`)
-        .setEmoji("<:BBones:1518220991938170910>")
+        .setEmoji("<:BBones:1520540942682030111>")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(user.bones < bet)
     )
@@ -776,7 +776,7 @@ async function showBlackjackBetMenu(interaction, user) {
     )
     .addFields({
       name: "Your Bones",
-      value: `${user.bones} <:BBones:1518220991938170910>`
+      value: `${user.bones} <:BBones:1520540942682030111>`
     })
     .setColor(0x2ecc71);
 
@@ -785,7 +785,7 @@ async function showBlackjackBetMenu(interaction, user) {
       new ButtonBuilder()
         .setCustomId(`blackjack_bet_${bet}_${interaction.user.id}`)
         .setLabel(`Bet ${bet}`)
-        .setEmoji("<:BBones:1518220991938170910>")
+        .setEmoji("<:BBones:1520540942682030111>")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(user.bones < bet)
     )
@@ -809,7 +809,7 @@ async function showHigherLowerBetMenu(interaction, user) {
     .addFields(
     {
       name: "Your Bones",
-      value: `${user.bones} <:BBones:1518220991938170910>`,
+      value: `${user.bones} <:BBones:1520540942682030111>`,
       inline: true
     },
     {
@@ -825,7 +825,7 @@ async function showHigherLowerBetMenu(interaction, user) {
       new ButtonBuilder()
         .setCustomId(`highlow_bet_${bet}_${interaction.user.id}`)
         .setLabel(`Bet ${bet}`)
-        .setEmoji("<:BBones:1518220991938170910>")
+        .setEmoji("<:BBones:1520540942682030111>")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(user.bones < bet)
     )
@@ -849,7 +849,7 @@ async function showBoneDigBetMenu(interaction, user) {
     )
     .addFields({
       name: "Your Bones",
-      value: `${user.bones} <:BBones:1518220991938170910>`
+      value: `${user.bones} <:BBones:1520540942682030111>`
     })
     .setColor(0xc27c2c);
 
@@ -858,7 +858,7 @@ async function showBoneDigBetMenu(interaction, user) {
       new ButtonBuilder()
         .setCustomId(`bonedig_bet_${bet}_${interaction.user.id}`)
         .setLabel(`Bet ${bet}`)
-        .setEmoji("<:BBones:1518220991938170910>")
+        .setEmoji("<:BBones:1520540942682030111>")
         .setStyle(ButtonStyle.Primary)
         .setDisabled(user.bones < bet)
     )
@@ -877,13 +877,13 @@ async function showGamesMenu(interaction, user, useUpdate = false) {
     .setTitle("🎮 Bibbles Games")
     .setDescription(
       `Welcome to the BoneBot arcade!\n\n` +
-      `<:BToken:1518219006392274995> **Game Tokens:** ${user.bibblesTokens}/${MAX_BIBBLES_TOKENS}\n` +
+      `<:BToken:1520541024978473100> **Game Tokens:** ${user.bibblesTokens}/${MAX_BIBBLES_TOKENS}\n` +
       `⏳ **Next Token:** Gives +10 at "daily" reset time!\n\n` +
       `Choose a game below:`
     )
     .addFields(
       {
-        name: "<:BToken:1518219006392274995> Coin Flip",
+        name: "<:BToken:1520541024978473100> Coin Flip",
         value: "3 flips per token.",
         inline: true
       },
@@ -914,7 +914,7 @@ async function showGamesMenu(interaction, user, useUpdate = false) {
     new ButtonBuilder()
       .setCustomId(`game_coinflip_${interaction.user.id}`)
       .setLabel("Coin Flip")
-      .setEmoji("<:BToken:1518219006392274995>")
+      .setEmoji("<:BToken:1520541024978473100>")
       .setStyle(ButtonStyle.Danger),
 
     new ButtonBuilder()
@@ -1170,7 +1170,7 @@ async function sendDailyResetPings(force = false) {
       const discordUser = await client.users.fetch(userData.userId);
 
       await discordUser.send(
-        `<:BBones:1518220991938170910> **Daily Reset!**\n\n` +
+        `<:BBones:1520540942682030111> **Daily Reset!**\n\n` +
         `Your **/daily** reward is ready to claim here https://discord.com/channels/1393315074235699200/1471356531009130701 !`
       );
     } catch (err) {
@@ -1215,7 +1215,7 @@ async function notifyPingUsers(shopItems) {
         const pingEmbed = new EmbedBuilder()
           .setTitle("📡 Ping Alert!")
           .setDescription(
-            `Your tracked card **${card.name}** is now available in the Bone Emporium! <:BBones:1518220991938170910> ***USE /pings to REMOVE DMs if wanted***`
+            `Your tracked card **${card.name}** is now available in the Bone Emporium! <:BBones:1520540942682030111> ***USE /pings to REMOVE DMs if wanted***`
           )
           .setColor(rarities[card.rarity].color)
           .addFields(
@@ -1334,7 +1334,7 @@ async function postShop(channel) {
       .setTitle(card.name)
       .setDescription(
         `${rarityData.emoji} **${rarityData.name}** ${rarityData.emoji}\n\n` +
-        `**Price:** \`${card.price}\`<:BBones:1518220991938170910>\n` +
+        `**Price:** \`${card.price}\`<:BBones:1520540942682030111>\n` +
         `**Season:** \`${card.season}\`\n` +
         `**Card ID:** \`${getCardId(card)}\``
       )
@@ -1374,13 +1374,13 @@ async function postShop(channel) {
         new ButtonBuilder()
           .setCustomId(`buy_${getCardId(card)}_1`)
           .setLabel("Buy 1")
-          .setEmoji("<:BBones:1518220991938170910>")
+          .setEmoji("<:BBones:1520540942682030111>")
           .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
           .setCustomId(`buy_${getCardId(card)}_5`)
           .setLabel("Buy 5")
-          .setEmoji("<:BBones:1518220991938170910>")
+          .setEmoji("<:BBones:1520540942682030111>")
           .setStyle(ButtonStyle.Success)
       );
     const msg = await channel.send({
@@ -1414,7 +1414,7 @@ async function postShop(channel) {
 
   try {
     await shopHeaderMessage.edit(
-      `# <:BBones:1518220991938170910> The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${formatted}**`
+      `# <:BBones:1520540942682030111> The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${formatted}**`
     );
   } catch (err) {}
 
@@ -1439,7 +1439,7 @@ async function postShop(channel) {
 
       try {
         await shopHeaderMessage.edit(
-          `# <:BBones:1518220991938170910> The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${m}m ${s}s**`
+          `# <:BBones:1520540942682030111> The Bone Emporium!\n🔥 Rotating Stock 🔥\n\n⏳ Refreshes in: **${m}m ${s}s**`
         );
       } catch (err) {}
 
@@ -1567,7 +1567,7 @@ client.on('messageCreate', async (message) => {
 
     await user.save();
 
-    return message.reply("<:BBones:1518220991938170910> Resetteded Yo Refund.");
+    return message.reply("<:BBones:1520540942682030111> Resetteded Yo Refund.");
   }
 
   
@@ -1655,7 +1655,7 @@ client.on('messageCreate', async (message) => {
 
       const resetEmbed = new EmbedBuilder()
       .setColor(0xE5C07B)
-      .setTitle('<:BBones:1518220991938170910> Bone Balance <:BBones:1518220991938170910>')
+      .setTitle('<:BBones:1520540942682030111> Bone Balance <:BBones:1520540942682030111>')
       .setDescription(`${target}'s balance:`)
       .addFields(
         { name: 'Bones', value: `\`0\``, inline: true }
@@ -1734,7 +1734,7 @@ client.on('messageCreate', async (message) => {
     }
 
     const embed = new EmbedBuilder()
-      .setTitle(`<:BBones:1518220991938170910> User Info: ${target.username}`)
+      .setTitle(`<:BBones:1520540942682030111> User Info: ${target.username}`)
       .setColor(0xf5c542)
       .setDescription(
         `**User ID:** ${user.userId}\n` +
@@ -1790,7 +1790,7 @@ client.on('messageCreate', async (message) => {
       }
 
       user.bonesSpentTotal = userCardValue;
-      user.bonesEarnedTotal = userCardValue;
+      user.bonesEarnedTotal = user.bones + userCardValue;
       await user.save();
 
       updatedUsers++;
@@ -1798,7 +1798,7 @@ client.on('messageCreate', async (message) => {
     }
 
     return message.reply(
-      `<:BBones:1518220991938170910> Card spending migration complete.\n` +
+      `<:BBones:1520540942682030111> Card spending migration complete.\n` +
       `Updated users: \`${updatedUsers}\`\n` +
       `Total bonesSpentTotal set across users: \`${totalSet}\`\n` +
       `Missing card lookups: \`${missingCards}\``
@@ -1854,7 +1854,7 @@ client.on('messageCreate', async (message) => {
     }
 
     return message.reply(
-      `<:BBones:1518220991938170910> Migration complete.\nUpdated ${updated} users.`
+      `<:BBones:1520540942682030111> Migration complete.\nUpdated ${updated} users.`
     );
   }
 
@@ -1913,7 +1913,7 @@ client.on('messageCreate', async (message) => {
 
     return message.channel.send(
       `💀 ${target.username}'s account has been wiped.\n` +
-      `<:BBones:1518220991938170910>: 0\nInventory: Cleared\nStreak: Reset`
+      `<:BBones:1520540942682030111>: 0\nInventory: Cleared\nStreak: Reset`
     );
   }
 
@@ -2136,7 +2136,7 @@ client.on('messageCreate', async (message) => {
     await user.save();
 
     return message.channel.send(
-      `Added \`${amount}\` <:BBones:1518220991938170910> to ${target}.`
+      `Added \`${amount}\` <:BBones:1520540942682030111> to ${target}.`
     );
   }
 
@@ -2175,7 +2175,7 @@ client.on('messageCreate', async (message) => {
     await user.save();
 
     return message.channel.send(
-      `Removed \`${amount}\` <:BBones:1518220991938170910> from ${target}.\nNew Balance: \`${user.bones}\``
+      `Removed \`${amount}\` <:BBones:1520540942682030111> from ${target}.\nNew Balance: \`${user.bones}\``
     );
   }
 
@@ -2220,7 +2220,7 @@ client.on('messageCreate', async (message) => {
 
   await user.save();
 
-  //1111 console.log(`${message.author.username} earned ${bonesEarned} <:BBones:1518220991938170910> and now has ${user.bones}`);
+  //1111 console.log(`${message.author.username} earned ${bonesEarned} <:BBones:1520540942682030111> and now has ${user.bones}`);
 });
 
 
@@ -2261,7 +2261,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     return interaction.reply({
-      content: "<:BBones:1518220991938170910> Use Bone Bot in the shop or commands channel.",
+      content: "<:BBones:1520540942682030111> Use Bone Bot in the shop or commands channel.",
       flags: 64
     });
   }
@@ -2606,7 +2606,7 @@ client.on('interactionCreate', async interaction => {
             `You found treasure **${wins}/3** times!\n` +
             `💰 Winnings: **${winnings} bones**\n` +
             `📊 Profit: **${profit >= 0 ? "+" : ""}${profit} bones**\n` +
-            `<:BBones:1518220991938170910> New Balance: **${user.bones} bones**<:BBones:1518220991938170910>`
+            `<:BBones:1520540942682030111> New Balance: **${user.bones} bones**<:BBones:1520540942682030111>`
         });
 
         return interaction.update({
@@ -2781,7 +2781,7 @@ client.on('interactionCreate', async interaction => {
         : `❌ It landed on **${result}**! You guessed wrong!`;
 
       const embed = new EmbedBuilder()
-        .setTitle("<:BToken:1518219006392274995> Coin Flip")
+        .setTitle("<:BToken:1520541024978473100> Coin Flip")
         .setDescription(resultText)
         .addFields(
           { name: "Bet", value: `${bet} bones`, inline: true },
@@ -2820,7 +2820,7 @@ client.on('interactionCreate', async interaction => {
           `You got **${wins}/3** correct!\n` +
           `💰 Winnings: **${winnings} bones**\n` +
           `📊 Profit: **${profit >= 0 ? "+" : ""}${profit} bones**\n` +
-          `<:BBones:1518220991938170910> New Balance: **${user.bones} bones**<:BBones:1518220991938170910>`;
+          `<:BBones:1520540942682030111> New Balance: **${user.bones} bones**<:BBones:1520540942682030111>`;
 
         if (gameProgress !== null) {
           gameOverText +=
@@ -2845,13 +2845,13 @@ client.on('interactionCreate', async interaction => {
         new ButtonBuilder()
           .setCustomId(`coinflip_heads_${ownerId}_${flipsLeft}_${wins}_${bet}`)
           .setLabel("Heads")
-          .setEmoji("<:BHeads:1519545907920765028>")
+          .setEmoji("<:BHeads:1520541089843384430>")
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
           .setCustomId(`coinflip_tails_${ownerId}_${flipsLeft}_${wins}_${bet}`)
           .setLabel("Tails")
-          .setEmoji("<:BTails:1519545923632631879>")
+          .setEmoji("<:BTails:1520541144369463467>")
           .setStyle(ButtonStyle.Danger)
       );
 
@@ -3079,7 +3079,7 @@ client.on('interactionCreate', async interaction => {
       // Already claimed today
       if (lastClaimDate === today) {
         return interaction.reply({
-          content: `<:BBones:1518220991938170910> You've already claimed your daily reward!\nResets at <t:${unixReset}:t> (<t:${unixReset}:R>)`,
+          content: `<:BBones:1520540942682030111> You've already claimed your daily reward!\nResets at <t:${unixReset}:t> (<t:${unixReset}:R>)`,
           flags: 64
         });
       }
@@ -3120,12 +3120,12 @@ client.on('interactionCreate', async interaction => {
 
       return interaction.reply({
         content:
-          `<:BBones:1518220991938170910> **Daily Claimed!**\n\n` +
+          `<:BBones:1520540942682030111> **Daily Claimed!**\n\n` +
           `Base: \`${baseReward}\`\n` +
           `Streak Bonus: \`${streakBonus}\`\n` +
           `Total Earned: \`${totalReward}\`\n\n` +
           `🔥 Current Streak: ${user.dailyStreak}/30\n\n` +
-          `💰 **New Balance:** \`${user.bones}\`<:BBones:1518220991938170910>`,
+          `💰 **New Balance:** \`${user.bones}\`<:BBones:1520540942682030111>`,
         flags: 64
       });
     }
@@ -3161,7 +3161,7 @@ client.on('interactionCreate', async interaction => {
 
     const balanceEmbed = new EmbedBuilder()
       .setColor(0xE5C07B)
-      .setTitle('<:BBones:1518220991938170910> Bone Balance <:BBones:1518220991938170910>')
+      .setTitle('<:BBones:1520540942682030111> Bone Balance <:BBones:1520540942682030111>')
       .setDescription(`${targetUser}'s balance:`)
       .addFields(
         { name: 'Bones', value: `\`${user.bones}\``, inline: true }
@@ -3380,7 +3380,7 @@ client.on('interactionCreate', async interaction => {
 
       if (!canUseRefund(user)) {
         return interaction.reply({
-          content: "<:BBones:1518220991938170910> You've already used your daily refund bestie. Refund resets at same time as daily!",
+          content: "<:BBones:1520540942682030111> You've already used your daily refund bestie. Refund resets at same time as daily!",
           flags: 64
         });
       }
@@ -3389,7 +3389,7 @@ client.on('interactionCreate', async interaction => {
 
       if (!ownedCard || ownedCard.quantity <= 0) {
         return interaction.reply({
-          content: "<:BBones:1518220991938170910>You don't own this card anymore, so it can't be refunded.",
+          content: "<:BBones:1520540942682030111>You don't own this card anymore, so it can't be refunded.",
           flags: 64
         });
       }
@@ -3409,7 +3409,7 @@ client.on('interactionCreate', async interaction => {
       await user.save();
 
       return interaction.update({
-        content: `Refunded! You received \`${refundPrice}\` <:BBones:1518220991938170910> back.`,
+        content: `Refunded! You received \`${refundPrice}\` <:BBones:1520540942682030111> back.`,
         embeds: [],
         components: []
       });   
@@ -3692,7 +3692,7 @@ client.on('interactionCreate', async interaction => {
 
       if (user.bones < totalPrice) {
         return interaction.reply({
-          content: `You don't have enough <:BBones:1518220991938170910>! You need **${totalPrice}**.`,
+          content: `You don't have enough <:BBones:1520540942682030111>! You need **${totalPrice}**.`,
           flags: 64
         });
       }
@@ -3720,8 +3720,8 @@ client.on('interactionCreate', async interaction => {
         .setColor(rarities[card.rarity.toUpperCase()].color)
         .setTitle("🛒 Purchase Successful!")
         .setDescription(
-          `You bought **${quantity}x ${card.name}** for \`${totalPrice}\` <:BBones:1518220991938170910>.\n\n` +
-          `<:BBones:1518220991938170910> **Remaining Balance:** \`${user.bones}\``
+          `You bought **${quantity}x ${card.name}** for \`${totalPrice}\` <:BBones:1520540942682030111>.\n\n` +
+          `<:BBones:1520540942682030111> **Remaining Balance:** \`${user.bones}\``
         )
         .setTimestamp();
 

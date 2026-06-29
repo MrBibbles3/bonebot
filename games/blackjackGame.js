@@ -133,7 +133,7 @@ async function handleBlackjackButton(interaction) {
         .setDescription(
           `You drew too many cards and busted.\n\n` +
           `**Your hand:** ${value}\n` +
-          `**Lost:** ${game.bet} <:BBones:1518220991938170910>`
+          `**Lost:** ${game.bet} <:BBones:1520540942682030111>`
         )
         .setImage("attachment://player-hand.png");
 
@@ -169,23 +169,23 @@ async function handleBlackjackButton(interaction) {
 
         if (blackjackProgress === 10) {
           result =
-            `🎉 **21!** You won **${winnings} <:BBones:1518220991938170910>**!\n\n` +
+            `🎉 **21!** You won **${winnings} <:BBones:1520540942682030111>**!\n\n` +
             `🃏 **Unique Card Progress:** \`10/10\` ✅`;
         } else {
           result =
-            `🎉 **21!** You won **${winnings} <:BBones:1518220991938170910>**!\n\n` +
+            `🎉 **21!** You won **${winnings} <:BBones:1520540942682030111>**!\n\n` +
             `🃏 **Unique Card Progress:** \`${blackjackProgress}/10\``;
         }
       } else {
         winnings = game.bet * 2;
-        result = `🎉 You win **${winnings} <:BBones:1518220991938170910>**!`;
+        result = `🎉 You win **${winnings} <:BBones:1520540942682030111>**!`;
       }
     } else if (playerValue < dealerValue) {
       winnings = 0;
-      result = `💀 You lose **${game.bet} <:BBones:1518220991938170910>**.`;
+      result = `💀 You lose **${game.bet} <:BBones:1520540942682030111>**.`;
     } else {
       winnings = game.bet;
-      result = `🤝 Push! Your **${game.bet} <:BBones:1518220991938170910>** bet was returned.`;
+      result = `🤝 Push! Your **${game.bet} <:BBones:1520540942682030111>** bet was returned.`;
     }
 
     user.bones += winnings;

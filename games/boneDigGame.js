@@ -14,7 +14,7 @@ const TILE_EMOJIS = {
   hidden: "🪨",
   trap: "🪬",
   curse: "🕸️",
-  bones: "<:BBones:1518220991938170910>",
+  bones: "<:BBones:1520540942682030111>",
   treasure: "💎",
   relic: "✨"
 };
@@ -172,8 +172,8 @@ async function sendBoneDigMessage(interaction, game, resultText = "") {
     .setDescription(
       `${resultText ? `${resultText}\n\n` : ""}` +
       `${getBoardText(game)}\n` +
-      `Bet: **${game.bet} <:BBones:1518220991938170910>**\n` +
-      `Current Loot: **${game.winnings} <:BBones:1518220991938170910>**\n\n` +
+      `Bet: **${game.bet} <:BBones:1520540942682030111>**\n` +
+      `Current Loot: **${game.winnings} <:BBones:1520540942682030111>**\n\n` +
       `Pick a rock to dig, or cash out.`
     )
     .setColor(0xc27c2c);
@@ -226,7 +226,7 @@ async function handleBoneDigButton(interaction) {
         .setDescription(
           `You dug up a trap and lost everything!\n\n` +
           `${getBoardText(game, true)}\n` +
-          `Bet Lost: **${game.bet} <:BBones:1518220991938170910>**`
+          `Bet Lost: **${game.bet} <:BBones:1520540942682030111>**`
         )
         .setColor(0xed4245);
 
@@ -245,8 +245,8 @@ async function handleBoneDigButton(interaction) {
 
     const resultText =
     reward < 0
-        ? `${TILE_EMOJIS[tile]} Curse! You lost **${Math.abs(reward)} <:BBones:1518220991938170910>** from your loot.`
-        : `${TILE_EMOJIS[tile]} You found **${reward} <:BBones:1518220991938170910>**!`;
+        ? `${TILE_EMOJIS[tile]} Curse! You lost **${Math.abs(reward)} <:BBones:1520540942682030111>** from your loot.`
+        : `${TILE_EMOJIS[tile]} You found **${reward} <:BBones:1520540942682030111>**!`;
 
     const safeRevealed = game.revealed.filter(index => {
         const tile = game.board[index];
@@ -272,8 +272,8 @@ async function handleBoneDigButton(interaction) {
         .setDescription(
           `You cleared the whole dig site!\n\n` +
           `${getBoardText(game, true)}\n` +
-          `💰 Winnings: **${game.winnings} <:BBones:1518220991938170910>**\n` +
-          `<:BBones:1518220991938170910> New Balance: **${user.bones} <:BBones:1518220991938170910>**\n\n` +
+          `💰 Winnings: **${game.winnings} <:BBones:1520540942682030111>**\n` +
+          `<:BBones:1520540942682030111> New Balance: **${user.bones} <:BBones:1520540942682030111>**\n\n` +
           `🔥 **Unique Card Progress:** \`${fireProgress}/10\`${fireProgress === 10 ? " ✅" : ""}`
         )
         .setColor(0x57f287);
@@ -320,8 +320,8 @@ async function handleBoneDigButton(interaction) {
       .setDescription(
         `You escaped with your loot!\n\n` +
         `${getBoardText(game, true)}\n` +
-        `💰 Winnings: **${game.winnings} <:BBones:1518220991938170910>**\n` +
-        `<:BBones:1518220991938170910> New Balance: **${user.bones} <:BBones:1518220991938170910>**`
+        `💰 Winnings: **${game.winnings} <:BBones:1520540942682030111>**\n` +
+        `<:BBones:1520540942682030111> New Balance: **${user.bones} <:BBones:1520540942682030111>**`
       )
       .setColor(0xf5c542);
 

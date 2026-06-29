@@ -124,11 +124,11 @@ async function sendHigherLowerMessage(interaction, resultText = "") {
         .setDescription(
             `${resultText ? `${resultText}\n\n` : ""}` +
             `${streakTitle ? `# ${streakTitle}\n\n` : ""}` +
-            `Bet: **${game.bet} <:BBones:1518220991938170910>**\n` +
+            `Bet: **${game.bet} <:BBones:1520540942682030111>**\n` +
             `Current Streak: **${game.streak}**\n` +
             `Best Streak: **${bestStreak}**\n` +
             `Multiplier: **${multiplier}x**\n` +
-            `Cash Out Value: **${cashout} <:BBones:1518220991938170910>**\n\n` +
+            `Cash Out Value: **${cashout} <:BBones:1520540942682030111>**\n\n` +
             `Will the next card be higher or lower?`
         )
         .setImage("attachment://higherlower-card.png")
@@ -150,7 +150,7 @@ async function sendHigherLowerMessage(interaction, resultText = "") {
         new ButtonBuilder()
         .setCustomId(`highlow_cashout_${game.userId}`)
         .setLabel("Cash Out")
-        .setEmoji("<:BBones:1518220991938170910>")
+        .setEmoji("<:BBones:1520540942682030111>")
         .setStyle(ButtonStyle.Secondary)
     );
 
@@ -212,8 +212,8 @@ async function handleHigherLowerButton(interaction) {
         `You cashed out at **${multiplier}x**!\n\n` +
         `🔥 Streak: **${game.streak}**\n` +
         `🏆 Best Streak: **${user.highlowBestStreak || 0}**\n` +
-        `💰 Winnings: **${winnings} <:BBones:1518220991938170910>**\n` +
-        `<:BBones:1518220991938170910> New Balance: **${user.bones} <:BBones:1518220991938170910>**`
+        `💰 Winnings: **${winnings} <:BBones:1520540942682030111>**\n` +
+        `<:BBones:1520540942682030111> New Balance: **${user.bones} <:BBones:1520540942682030111>**`
         )
         .setColor(0xf5c542);
 
@@ -257,7 +257,7 @@ async function handleHigherLowerButton(interaction) {
       .setTitle("💀 Higher or Lower - Bust")
       .setDescription(
         `The next card was **${nextCard.rank} of ${nextCard.suit}**.\n\n` +
-        `You guessed **${action}** and lost **${game.bet} <:BBones:1518220991938170910>**.`
+        `You guessed **${action}** and lost **${game.bet} <:BBones:1520540942682030111>**.`
       )
       .setImage("attachment://higherlower-card.png")
       .setColor(0xed4245);
