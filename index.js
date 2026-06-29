@@ -108,7 +108,7 @@ mongoose.connect(process.env.MONGO_URI)
 client.login(process.env.TOKEN);
 
 
-async function getOrCreateUser(userId) {
+async function getOrCreateUser(userId, discordUser = null) {
   let user = await User.findOne({ userId });
 
   if (!user) {
