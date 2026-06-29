@@ -583,6 +583,38 @@ function buildHelpButtons(userId) {
 }
 
 
+async function sendDailyResetPings(force = false) {
+  const today = getBrisbaneToday();
+
+  if (!force && lastDailyPingDate === today) return 0;
+  const now = new Date();
+  const resetTime = getDailyPingResetDate();
+
+  if (!force && now < resetTime) return 0;
+
+  lastDailyPingDate = today;
+
+  const users = await User.find({
+    dailyPingEnabled: true
+  });
+
+  for (const userData of users) {
+    try {
+      const discordUser = await client.users.fetch(userData.userId);
+
+      await discordUser.send(
+        `<:BBones:1520540942682030111> **Daily Reset!**\n\n` +
+        `Your **/daily** reward is ready to claim here https://discord.com/channels/1393315074235699200/1471356531009130701 !`
+      );
+    } catch (err) {
+      //1111 console.log(`Could not send daily ping to ${userData.userId}: ${err.message}`);
+    }
+  }
+
+  console.log(`Daily reset pings sent to ${users.length} users.`);
+}
+
+
 async function applyDailyTokenGrant(user, discordUser = null) {
   const today = getBrisbaneToday();
 
