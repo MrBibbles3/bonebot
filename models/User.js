@@ -47,6 +47,11 @@ const userSchema = new mongoose.Schema({
         default: null
     },
 
+    lastDailyPingSent: {
+        type: String,
+        default: null
+    },
+
     lastBibblesTokenRecharge: {
         type: Date,
         default: Date.now

@@ -193,6 +193,8 @@ async function handleHigherLowerButton(interaction) {
     const winnings = Math.floor(game.bet * multiplier);
 
     user.bones += winnings;
+    user.bonesEarnedTotal = (user.bonesEarnedTotal || 0) + winnings;
+    await user.save();
 
     if (!user.highlowBestStreak || game.streak > user.highlowBestStreak) {
         user.highlowBestStreak = game.streak;

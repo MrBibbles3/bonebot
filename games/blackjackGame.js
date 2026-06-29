@@ -189,6 +189,7 @@ async function handleBlackjackButton(interaction) {
     }
 
     user.bones += winnings;
+    user.bonesEarnedTotal = (user.bonesEarnedTotal || 0) + winnings;
     await user.save();
     
     const unlockEmbeds = await checkUnlocks(user, interaction.user);

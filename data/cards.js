@@ -911,56 +911,56 @@ module.exports = {
       "season": 1,
       "id" : "U1",
       "name": "Golden Bibbles",
-      "price": 10000,
+      "price": 1,
       "rarity": "UNIQUE"
     },
         {
           "season": 2,
           "id" : "U1",
           "name": "Bibple",
-          "price": 10000,
+          "price": 1,
           "rarity": "UNIQUE"
         },
         {
           "season": 2,
           "id" : "U2",
           "name": "Devbles",
-          "price": 10000,
+          "price": 1,
           "rarity": "UNIQUE"
         },
         {
           "season": 2,
           "id" : "U3",
           "name": "Firebibs",
-          "price": 10000,
+          "price": 1,
           "rarity": "UNIQUE"
         },
         {
           "season": 2,
           "id" : "U4",
           "name": "Gamebibs",
-          "price": 10000,
+          "price": 1,
           "rarity": "UNIQUE"
         },
         {
           "season": 2,
           "id" : "U5",
           "name": "Kevbles",
-          "price": 10000,
+          "price": 1,
           "rarity": "UNIQUE"
         },
         {
           "season": 2,
           "id" : "U6",
           "name": "Sinbles",
-          "price": 10000,
+          "price": 1,
           "rarity": "UNIQUE"
         },
         {
           "season": 2,
           "id" : "U7",
           "name": "Bibki",
-          "price": 10000,
+          "price": 1,
           "rarity": "UNIQUE"
         }
 
@@ -970,7 +970,7 @@ module.exports = {
       "season": 3,
       "id" : "X1",
       "name": "MrBibbles",
-      "price": 10000,
+      "price": 1,
       "rarity": "EVENT"
     }
   ]

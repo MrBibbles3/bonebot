@@ -10,7 +10,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "2.2";
+const BOT_VERSION = "2.3";
 const IMAGE_COMMIT = "26f767b"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
@@ -72,8 +72,6 @@ async function clearShopChannel(channel) {
 client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  setInterval(sendDailyResetPings, 60 * 1000);
-
   try {
     const shopChannel = await client.channels.fetch(SHOP_CHANNEL_ID);
 
@@ -87,10 +85,10 @@ client.once('clientReady', async () => {
     await shopChannel.send(`Update ${BOT_VERSION} is live!`);
 
 
-    // Rotate every 60 minutes (30 for testing)
+    // Rotate every 60 minutes
     setInterval(async () => {
       await postShop(shopChannel);
-    }, 30 * 60 * 1000);
+    }, 60 * 60 * 1000);
 
   } catch (err) {
     console.error("Shop boot error:", err);
@@ -127,7 +125,7 @@ async function getOrCreateUser(userId) {
     await user.save();
   }
 
-  await applyDailyTokenGrant(user);
+  await applyDailyTokenGrant(user, discordUser);
 
   return user;
 }
@@ -585,7 +583,7 @@ function buildHelpButtons(userId) {
 }
 
 
-async function applyDailyTokenGrant(user) {
+async function applyDailyTokenGrant(user, discordUser = null) {
   const today = getBrisbaneToday();
 
   if (user.lastGlobalTokenDaily === today) {
@@ -598,7 +596,24 @@ async function applyDailyTokenGrant(user) {
   );
 
   user.lastGlobalTokenDaily = today;
-  user.lastBibblesTokenRecharge = new Date();
+
+  if (
+    user.dailyPingEnabled &&
+    discordUser &&
+    user.lastDailyPingSent !== today
+  ) {
+    try {
+      await discordUser.send(
+        `<:BBones:1518220991938170910> **Daily Reset!**\n\n` +
+        `Your **/daily** reward is ready to claim!\n` +
+        `You received **+10 Bibbles Tokens**.`
+      );
+
+      user.lastDailyPingSent = today;
+    } catch (err) {
+      console.log(`Could not send daily ping to ${user.userId}: ${err.message}`);
+    }
+  }
 
   await user.save();
   return user;
@@ -1134,52 +1149,6 @@ function getShopSeasonsForToday() {
   return [1, 2];
 }
 
-let lastDailyPingDate = null;
-
-function getDailyPingResetDate() {
-  const now = new Date();
-
-  const brisbaneNow = new Date(
-    now.toLocaleString("en-US", { timeZone: "Australia/Brisbane" })
-  );
-
-  const resetTime = new Date(brisbaneNow);
-  resetTime.setHours(24, 0, 0, 0);
-  resetTime.setHours(resetTime.getHours() - 10);
-
-  return resetTime;
-}
-
-async function sendDailyResetPings(force = false) {
-  const today = getBrisbaneToday();
-
-  if (!force && lastDailyPingDate === today) return 0;
-  const now = new Date();
-  const resetTime = getDailyPingResetDate();
-
-  if (!force && now < resetTime) return 0;
-
-  lastDailyPingDate = today;
-
-  const users = await User.find({
-    dailyPingEnabled: true
-  });
-
-  for (const userData of users) {
-    try {
-      const discordUser = await client.users.fetch(userData.userId);
-
-      await discordUser.send(
-        `<:BBones:1520540942682030111> **Daily Reset!**\n\n` +
-        `Your **/daily** reward is ready to claim here https://discord.com/channels/1393315074235699200/1471356531009130701 !`
-      );
-    } catch (err) {
-      //1111 console.log(`Could not send daily ping to ${userData.userId}: ${err.message}`);
-    }
-  }
-
-  console.log(`Daily reset pings sent to ${users.length} users.`);
-}
 
 //Brisbane Time Function
 function getBrisbaneToday() {

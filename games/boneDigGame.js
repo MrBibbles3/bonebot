@@ -258,7 +258,9 @@ async function handleBoneDigButton(interaction) {
 
       const user = await User.findOne({ userId: ownerId });
 
-      user.bones += game.winnings;
+      user.bones += winnings;
+      user.bonesEarnedTotal = (user.bonesEarnedTotal || 0) + winnings;
+      await user.save();
 
       user.boneDigPerfectCount = (user.boneDigPerfectCount || 0) + 1;
       const fireProgress = Math.min(user.boneDigPerfectCount, 10);
@@ -312,7 +314,8 @@ async function handleBoneDigButton(interaction) {
     boneDigGames.delete(ownerId);
 
     const user = await User.findOne({ userId: ownerId });
-    user.bones += game.winnings;
+    user.bones += winnings;
+    user.bonesEarnedTotal = (user.bonesEarnedTotal || 0) + winnings;
     await user.save();
 
     const embed = new EmbedBuilder()
