@@ -10,7 +10,7 @@ let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
 let shopHeaderMessage = null;
-const BOT_VERSION = "2.3";
+const BOT_VERSION = "2.4";
 const IMAGE_COMMIT = "26f767b"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
@@ -580,6 +580,24 @@ function buildHelpButtons(userId) {
       .setEmoji("🏠")
       .setStyle(ButtonStyle.Success)
   );
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForImageUrl(url, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, { method: "HEAD" });
+
+      if (res.ok) return true;
+    } catch (err) {}
+
+    await sleep(500);
+  }
+
+  return false;
 }
 
 
@@ -1163,7 +1181,7 @@ function getSeasonIndexData(user, season) {
 }
 
 function getShopSeasonsForToday() {
-  const day = new Date().getDay();
+  /*const day = new Date().getDay();
   // 0 = Sunday
   // 1 = Monday
   // 2 = Tuesday
@@ -1175,7 +1193,7 @@ function getShopSeasonsForToday() {
   // Sunday, Monday, Tuesday = Season 2 only
   if ([0, 1, 2].includes(day)) {
     return [2];
-  }
+  }*/
 
   // Wednesday, Thursday, Friday, Saturday = Both Seasons
   return [1, 2];
@@ -1356,11 +1374,9 @@ async function postShop(channel) {
       }
       files.push(attachment);
     } else {
-      if (isCardGif(card)) {
-        cardEmbed.setImage(getCardImageUrl(card));
-      } else {
-        cardEmbed.setImage(getCardImageUrl(card));
-      }
+        const imageUrl = getCardImageUrl(card);
+        await waitForImageUrl(imageUrl);
+        cardEmbed.setImage(imageUrl);      
     }
 
       const ownRow = new ActionRowBuilder().addComponents(
@@ -1391,6 +1407,8 @@ async function postShop(channel) {
     });
 
     currentShopMessages.push(msg);
+
+    await sleep(750);
   }
 
   
