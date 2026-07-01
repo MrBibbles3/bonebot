@@ -177,7 +177,7 @@ async function checkBibblesUnlock(user, discordUser = null) {
 }
 
 async function checkSinnyUnlock(user, discordUser = null) {
-  if ((user.blackjack21Count || 0) < 2) return null;
+  if ((user.blackjack21Count || 0) < 10) return null;
 
   const unlocked = await giveUniqueCard(
     user,
