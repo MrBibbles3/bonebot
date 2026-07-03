@@ -1511,7 +1511,15 @@ function generateShop() {
   addRandomUniqueCard(shop, fifthShop, shopSeasons);
 
   if (Math.random() < 0.01) {
-    addRandomUniqueCard(shop, 'UNIQUE', shopSeasons);
+    const sukiCard = findCardById("2U7");
+
+    if (
+      sukiCard &&
+      shopSeasons.includes(Number(sukiCard.season)) &&
+      !shop.some(existing => getCardId(existing) === getCardId(sukiCard))
+    ) {
+      shop.push(sukiCard);
+    }
   }
 
   return shop;
@@ -2009,6 +2017,96 @@ client.on('messageCreate', async (message) => {
   }
 
 
+  if (message.content.toLowerCase().startsWith("!deletecard")) {
+    if (!message.member.permissions.has("Administrator")) {
+      return message.reply("You don't have permission.");
+    }
+
+    const args = message.content.trim().split(/\s+/);
+    const rawCardId = args[1];
+
+    if (!rawCardId) {
+      return message.reply("Usage: `!deletecard CARD_ID`");
+    }
+
+    const card = findCardById(rawCardId);
+
+    if (!card) {
+      return message.reply(`Invalid card ID: \`${rawCardId}\``);
+    }
+
+    const fullCardId = getCardId(card);
+
+    const users = await User.find({
+      "inventory.itemId": fullCardId
+    });
+
+    if (users.length === 0) {
+      return message.reply(`Nobody owns \`${fullCardId}\`.`);
+    }
+
+    let removedUsers = 0;
+    let removedQuantity = 0;
+
+    for (const user of users) {
+      const beforeLength = user.inventory.length;
+
+      const removedItems = user.inventory.filter(i => i.itemId === fullCardId);
+      removedQuantity += removedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+      user.inventory = user.inventory.filter(i => i.itemId !== fullCardId);
+
+      if (user.inventory.length !== beforeLength) {
+        await user.save();
+        removedUsers++;
+      }
+    }
+
+    return message.reply(
+      `🗑️ Removed \`${fullCardId}\` (${card.name}) from **${removedUsers}** user(s).\n` +
+      `Total copies removed: **${removedQuantity}**`
+    );
+  }
+
+
+  if (message.content.toLowerCase().startsWith("!whoowns")) {
+    if (!message.member.permissions.has("Administrator")) {
+      return message.reply("You don't have permission.");
+    }
+
+    const args = message.content.trim().split(/\s+/);
+    const rawCardId = args[1];
+
+    if (!rawCardId) {
+      return message.reply("Usage: `!whoowns CARD_ID`");
+    }
+
+    const card = findCardById(rawCardId);
+
+    if (!card) {
+      return message.reply(`Invalid card ID: \`${rawCardId}\``);
+    }
+
+    const fullCardId = getCardId(card);
+
+    const users = await User.find({
+      "inventory.itemId": fullCardId
+    });
+
+    if (users.length === 0) {
+      return message.reply(`Nobody owns \`${fullCardId}\`.`);
+    }
+
+    const lines = users.map(user => {
+      const invItem = user.inventory.find(i => i.itemId === fullCardId);
+      return `<@${user.userId}> - Qty: \`${invItem?.quantity || 0}\``;
+    });
+
+    return message.reply(
+      `👀 **Users who own \`${fullCardId}\` (${card.name}):**\n\n` +
+      lines.join("\n")
+    );
+  }
 
   // ========================
   // GIVE CARD COMMAND
