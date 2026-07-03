@@ -3109,8 +3109,7 @@ client.on('interactionCreate', async interaction => {
         content:
           `👑 Added **${value}** giveaway value to ${targetUser}.\n` +
           `New total: **${user.giveawayValue}**\n` +
-          `Details: ${details}`,
-        flags: 64
+          `Details: ${details}`
       });
     }
 
