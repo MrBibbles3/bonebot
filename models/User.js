@@ -76,7 +76,7 @@ const userSchema = new mongoose.Schema({
             }
         ],
     default: []
-    }
+    },
 
     dailyPingEnabled: {
         type: Boolean,
