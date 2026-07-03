@@ -62,6 +62,22 @@ const userSchema = new mongoose.Schema({
         default: 0
     },
 
+    giveawayValue: {
+        type: Number,
+        default: 0
+    },
+    giveawayLog: {
+        type: [
+            {
+            value: Number,
+            details: String,
+            addedBy: String,
+            addedAt: Date
+            }
+        ],
+    default: []
+    }
+
     dailyPingEnabled: {
         type: Boolean,
         default: false

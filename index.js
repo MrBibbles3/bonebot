@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const mongoose = require('mongoose');
 const cooldowns = new Map();
-const {Client, REST, Routes, Partials, SlashCommandBuilder, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, AllowedMentionsTypes } = require('discord.js');
+const {Client, REST, Routes, Partials, SlashCommandBuilder, PermissionFlagsBits, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, AllowedMentionsTypes } = require('discord.js');
 const cards = require('./data/cards');
 const rarities = require('./data/rarities');
 const User = require('./models/User');
@@ -153,6 +153,29 @@ const commands = [
   ),
 
   new SlashCommandBuilder()
+    .setName("bbgiveaway")
+    .setDescription("Add Giveaway King value to a user")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("User to add giveaway value to")
+        .setRequired(true)
+    )
+    .addIntegerOption(option =>
+      option
+        .setName("value")
+        .setDescription("Giveaway value to add")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option
+        .setName("details")
+        .setDescription("Details about the giveaway")
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
     .setName("help")
     .setDescription("Learn how BoneBot works"),
 
@@ -206,7 +229,8 @@ const commands = [
           { name: "Bones Spent", value: "spent" },
           { name: "All Time Balance", value: "earned" },
           { name: "Daily Streak", value: "daily" },
-          { name: "High Low Streak", value: "highlow" }
+          { name: "High Low Streak", value: "highlow" },
+          { name: "Donation", value: "donation" }
         )
     ),
 
@@ -599,6 +623,8 @@ async function waitForImageUrl(url, retries = 3) {
 
   return false;
 }
+
+
 
 
 async function sendDailyResetPings(force = false) {
@@ -1056,11 +1082,15 @@ async function buildLeaderboardPayload(interaction, type, page = 0) {
     title = "🔥 Leaderboard Daily Streak";
     statLabel = "day streak";
     getValue = user => user.dailyStreak || 0;
+  } else if (type === "donation") {
+    title = "👑 Leaderboard Donation";
+    statLabel = "donated";
+    getValue = user => user.giveawayValue || 0;
   } else {
     title = "⬆️ Leaderboard High Low Streak";
     statLabel = "best streak";
     getValue = user => user.highlowBestStreak || 0;
-  }
+  } 
 
   users = users
     .filter(user => getValue(user) > 0)
@@ -3047,6 +3077,40 @@ client.on('interactionCreate', async interaction => {
     if (interaction.commandName === "games") {
       const user = await getOrCreateUser(interaction.user.id);
       return showGamesMenu(interaction, user);
+    }
+
+    if (interaction.commandName === "bbgiveaway") {
+      if (!interaction.member.permissions.has("Administrator")) {
+        return interaction.reply({
+          content: "You don't have permission to use this command.",
+          flags: 64
+        });
+      }
+
+      const targetUser = interaction.options.getUser("user");
+      const value = interaction.options.getInteger("value");
+      const details = interaction.options.getString("details");
+
+      const user = await getOrCreateUser(targetUser.id, targetUser);
+
+      user.giveawayValue = (user.giveawayValue || 0) + value;
+
+      user.giveawayLog.push({
+        value,
+        details,
+        addedBy: interaction.user.id,
+        addedAt: new Date()
+      });
+
+      await user.save();
+
+      return interaction.reply({
+        content:
+          `👑 Added **${value}** giveaway value to ${targetUser}.\n` +
+          `New total: **${user.giveawayValue}**\n` +
+          `Details: ${details}`,
+        flags: 64
+      });
     }
 
     if (
