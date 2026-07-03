@@ -14,7 +14,8 @@ const BOT_VERSION = "2.4";
 const IMAGE_COMMIT = "26f767b"; // replace with newest git log --oneline
 const ALLOWED_CHANNELS = [
   '1471356398989480103',
-  '1471356531009130701'
+  '1471356531009130701',
+  '1443432710767906816'
 ];
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
