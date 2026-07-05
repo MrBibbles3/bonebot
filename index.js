@@ -2139,6 +2139,54 @@ client.on('messageCreate', async (message) => {
     );
   }
 
+
+  if (message.content.toLowerCase().startsWith("!edit ")) {
+    if (!message.member.permissions.has("Administrator")) return;
+
+    const args = message.content.trim().split(/\s+/);
+
+    if (args.length < 4) {
+      return message.reply(
+        "Usage: `!edit <field> @user <value>`"
+      );
+    }
+
+    const field = args[1];
+    const target = message.mentions.users.first();
+    const value = Number(args[3]);
+
+    if (!target) {
+      return message.reply("Please mention a user.");
+    }
+
+    if (Number.isNaN(value)) {
+      return message.reply("Value must be a number.");
+    }
+
+    const user = await getOrCreateUser(target.id);
+
+    if (!(field in user._doc)) {
+      return message.reply(`Unknown field: \`${field}\``);
+    }
+
+    if (typeof user[field] !== "number") {
+      return message.reply(`\`${field}\` is not a numeric field.`);
+    }
+
+    const oldValue = user[field];
+
+    user[field] = value;
+
+    await user.save();
+
+    return message.reply(
+      `✅ Updated **${target.username}**\n` +
+      `Field: \`${field}\`\n` +
+      `Old: \`${oldValue}\`\n` +
+      `New: \`${value}\``
+    );
+  }
+
   // ========================
   // GIVE CARD COMMAND
   // ========================
@@ -2409,7 +2457,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     return interaction.reply({
-      content: "<:BBones:1520540942682030111> Use Bone Bot in the shop or commands channel.",
+      content: "<:BBones:1520540942682030111> Use Bone Bot in https://discord.com/channels/1393315074235699200/1471356531009130701 channel.",
       flags: 64
     });
   }
