@@ -103,7 +103,7 @@ const userSchema = new mongoose.Schema({
         default: 0
     },
 
-    highLowReached20: {
+    highLowReached15: {
         type: Boolean,
         default: false
     },

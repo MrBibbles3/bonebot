@@ -3243,7 +3243,7 @@ client.on('interactionCreate', async interaction => {
       const boneDig = Math.min(user.boneDigPerfectCount || 0, 10);
       const coinFlip = Math.min(user.coinFlipPerfectCount || 0, 10);
 
-      const devDone = !!user.highLowReached20;
+      const devDone = !!user.highLowReached15;
 
       const embed = new EmbedBuilder()
         .setTitle(`🏆 ${targetUser.username}'s Achievements`)
@@ -3270,7 +3270,7 @@ client.on('interactionCreate', async interaction => {
           `Bone Dig clears: **${boneDig}/10**\n\n` +
 
           `${devDone ? "✅" : "❌"} **Dev**\n` +
-          `Reach High/Low streak 20: **${devDone ? "Complete" : "Incomplete"}**`
+          `Reach High/Low SECRET MAX: **${devDone ? "Complete" : "Incomplete"}**`
         );
 
       return interaction.reply({

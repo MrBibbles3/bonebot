@@ -269,7 +269,7 @@ async function checkApplUnlock(user, discordUser = null) {
 }
 
 async function checkDevUnlock(user, discordUser = null) {
-  if (!user.highLowReached20) return null;
+  if (!user.highLowReached15) return null;
 
   const unlocked = await giveUniqueCard(
     user,

@@ -40,18 +40,13 @@ function createMainMenuRow(userId) {
 }
 
 function getStreakTitle(streak) {
-    if (streak >= 20) return "🍀 This is what grass looks like, you need it!\n" + "# 👑YOU UNLOCKED A SECRET UNIQUE CARD!👑";
-    if (streak >= 19) return "✨ 2 more....";
-    if (streak >= 18) return "🤓 3 more to go!!";
-    if (streak >= 17) return "🌸 20 then I'll actually applaud you";
-    if (streak >= 16) return "🪦 Nah fr if you get-";
-    if (streak >= 15) return "⌚ Quit while you're ahead";
+    if (streak >= 15) return "🍀 This is what grass looks like, you need it!\n" + "# 👑YOU UNLOCKED A SECRET UNIQUE CARD!👑";
     if (streak >= 14) return "🤓 Like literally, it won't go up";
-    if (streak >= 13) return "👹 There's no more multipliers";
-    if (streak >= 12) return "😭 It's over gang";
-    if (streak >= 11) return "🍒 Why are you still going?";
-    if (streak >= 10) return "❓ Huh";
-    if (streak >= 9) return "🌌 AHHHHHHHHHHHHHHHHHHHHHHHHHHHH 🌌";
+    if (streak >= 13) return "⌚ Quit while you're ahead";
+    if (streak >= 12) return "👹 There's no more multipliers";
+    if (streak >= 11) return "😭 It's over gang";
+    if (streak >= 10) return "🍒 Why are you still going?";
+    if (streak >= 9) return "❓ Huh";
     if (streak >= 8) return "🌌 AHHHHHHHHHHHHHH";
     if (streak >= 7) return "⚡ UNIVERSAL POWER";
     if (streak >= 6) return "💀 GI-NAMA-NA-NOURUS";
@@ -200,8 +195,8 @@ async function handleHigherLowerButton(interaction) {
         user.highlowBestStreak = game.streak;
     }
 
-    if (game.streak >= 20 && !user.highLowReached20) {
-        user.highLowReached20 = true;
+    if (game.streak >= 15 && !user.highLowReached15) {
+        user.highLowReached15 = true;
     }
 
     await user.save();
