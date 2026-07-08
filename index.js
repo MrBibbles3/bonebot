@@ -3354,7 +3354,8 @@ client.on('interactionCreate', async interaction => {
           `Streak Bonus: \`${streakBonus}\`\n` +
           `Total Earned: \`${totalReward}\`\n\n` +
           `🔥 Current Streak: ${user.dailyStreak}/30\n\n` +
-          `💰 **New Balance:** \`${user.bones}\`<:BBones:1520540942682030111>`,
+          `💰 **New Balance:** \`${user.bones}\`<:BBones:1520540942682030111>\n\n` +
+          `🎮 **10 Daily Game tokens given!**<:BToken:1520541024978473100>`,
         flags: 64
       });
     }

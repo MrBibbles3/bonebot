@@ -27,7 +27,7 @@ const CARD_VALUES = {
     K: 13
 };
 
-const MULTIPLIERS = [1, 1.2, 1.4, 1.6, 1.8, 2, 2.5, 3, 5, 6];
+const MULTIPLIERS = [1, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6];
 
 function createMainMenuRow(userId) {
   return new ActionRowBuilder().addComponents(
