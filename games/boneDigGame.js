@@ -147,10 +147,7 @@ async function startBoneDig(interaction, bet) {
   const userId = interaction.user.id;
 
   if (boneDigGames.has(userId)) {
-    return interaction.reply({
-      content: "⛏️ You already have a Bone Dig game running!",
-      flags: 64
-    });
+    boneDigGames.delete(userId);
   }
 
   const game = {
