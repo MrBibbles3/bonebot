@@ -995,7 +995,7 @@ async function showGamesMenu(interaction, user, useUpdate = false) {
         inline: true
       },
       {
-        name: "⛏️ Bone Dig (2 TOKENS)",
+        name: "⛏️ Bone Dig",
         value: "Dig, cash out, or perish.",
         inline: true
       }
