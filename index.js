@@ -2872,7 +2872,7 @@ client.on('interactionCreate', async interaction => {
         });
       }
 
-      const paid = await spendBibblesToken2(user);
+      const paid = await spendBibblesToken(user);
 
       if (!paid) {
         return interaction.reply({
