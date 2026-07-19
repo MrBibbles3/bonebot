@@ -1541,7 +1541,7 @@ function generateShop() {
 
   addRandomUniqueCard(shop, fifthShop, shopSeasons);
 
-  if (Math.random() < 0.99) {
+  if (Math.random() < 0.01) {
     const sukiCard = findCardById("2U7");
 
     if (
