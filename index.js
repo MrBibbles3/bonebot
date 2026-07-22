@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cooldowns = new Map();
 const {Client, REST, Routes, Partials, SlashCommandBuilder, PermissionFlagsBits, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, AllowedMentionsTypes } = require('discord.js');
 const cards = require('./data/cards');
+const fs = require("fs");
 const rarities = require('./data/rarities');
 const User = require('./models/User');
 let currentShopMessages = [];
@@ -2047,6 +2048,108 @@ client.on('messageCreate', async (message) => {
     });
   }
 
+  if (message.content.toLowerCase().startsWith("!giveeventcard")) {
+    if (!message.member.permissions.has("Administrator")) {
+      return;
+    }
+
+    const args = message.content.trim().split(/\s+/);
+
+    const cardId = args[1]?.toUpperCase();
+    const quantity = Number(args[2]);
+
+    if (!cardId || !Number.isInteger(quantity) || quantity <= 0) {
+      return message.reply(
+        "❌ Usage: `!giveeventcard <cardId> <quantity>`\n" +
+        "Example: `!giveeventcard X1 2`"
+      );
+    }
+
+    let fileContents;
+
+    try {
+      fileContents = fs.readFileSync("./eventUsers.txt", "utf8");
+    } catch (error) {
+      console.error("Could not read eventUsers.txt:", error);
+
+      return message.reply(
+        "❌ I couldn't read `eventUsers.txt`. Make sure it is beside `index.js`."
+      );
+    }
+
+    const ids = [
+      ...new Set(
+        fileContents
+          .split(/\r?\n/)
+          .map(id => id.trim())
+          .filter(Boolean)
+      )
+    ];
+
+    if (ids.length === 0) {
+      return message.reply("❌ `eventUsers.txt` contains no user IDs.");
+    }
+
+    let given = 0;
+    let skipped = 0;
+    let failed = 0;
+    let processed = 0;
+
+    for (const userId of ids) {
+      processed++;
+
+      try {
+        // Basic Discord ID validation
+        if (!/^\d{17,20}$/.test(userId)) {
+          console.warn(`Skipped invalid Discord ID: ${userId}`);
+          skipped++;
+          continue;
+        }
+
+        const user = await getOrCreateUser(userId);
+
+        const existingCard = user.inventory.find(
+          item => item.itemId.toUpperCase() === cardId
+        );
+
+        if (existingCard) {
+          // Give the requested amount on top of what they own
+          existingCard.quantity += quantity;
+        } else {
+          user.inventory.push({
+            itemId: cardId,
+            quantity
+          });
+        }
+
+        await user.save();
+        given++;
+
+        if (processed % 50 === 0) {
+          console.log(
+            `Event card progress: ${processed}/${ids.length}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `Failed to give ${quantity}x ${cardId} to ${userId}:`,
+          error
+        );
+
+        failed++;
+      }
+    }
+
+    return message.reply(
+      `🎉 **Bulk card distribution complete!**\n\n` +
+      `🃏 Card: \`${cardId}\`\n` +
+      `📦 Quantity per user: **${quantity}**\n` +
+      `✅ Users rewarded: **${given}**\n` +
+      `⏭️ Invalid IDs skipped: **${skipped}**\n` +
+      `❌ Failed: **${failed}**\n` +
+      `👥 IDs in file: **${ids.length}**`
+    );
+  }
 
   if (message.content.toLowerCase().startsWith("!deletecard")) {
     if (!message.member.permissions.has("Administrator")) {

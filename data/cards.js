@@ -967,9 +967,9 @@ module.exports = {
   ],
   "EVENT": [
     {
-      "season": 3,
+      "season": 1,
       "id" : "X1",
-      "name": "MrBibbles",
+      "name": "DiscordAnniversary",
       "price": 1,
       "rarity": "EVENT"
     }
