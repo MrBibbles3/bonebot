@@ -4,7 +4,6 @@ const mongoose = require('mongoose');
 const cooldowns = new Map();
 const {Client, REST, Routes, Partials, SlashCommandBuilder, PermissionFlagsBits, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, AllowedMentionsTypes } = require('discord.js');
 const cards = require('./data/cards');
-const fs = require("fs");
 const rarities = require('./data/rarities');
 const User = require('./models/User');
 let currentShopMessages = [];
