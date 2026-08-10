@@ -99,13 +99,25 @@ client.once('clientReady', async () => {
 
 
 console.log("Attempting MongoDB connection...");
-//mongoose.connect('mongodb://127.0.0.1:27017/bonebot')
+
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('Mongo Error:', err.message));
+  .then(() => console.log("Connected to MongoDB"))
+  .catch(err => {
+    console.error("MongoDB initial connection error:", err);
+  });
 
+mongoose.connection.on("error", err => {
+  console.error("MongoDB connection error:", err);
+});
 
-//client.login('token');
+mongoose.connection.on("disconnected", () => {
+  console.warn("MongoDB disconnected.");
+});
+
+mongoose.connection.on("connected", () => {
+  console.log("MongoDB connected/reconnected.");
+});
+
 client.login(process.env.TOKEN);
 
 
@@ -2525,7 +2537,7 @@ client.on('messageCreate', async (message) => {
 
 
 client.on('interactionCreate', async interaction => {
-
+  try {
   if (
     interaction.isButton() &&
     interaction.customId.startsWith("games_menu_")
@@ -4370,10 +4382,42 @@ client.on('interactionCreate', async interaction => {
           embeds: [inventoryEmbed],
           components: [row1, row2],
           files: [],
-          attatchments: []
+          attachments: []
         });
       }
 
     }
   }
+    } catch (error) {
+    console.error("Interaction handler error:", error);
+
+    // Discord interaction already expired
+    if (error?.code === 10062) {
+      console.warn("Ignored expired Discord interaction (10062).");
+      return;
+    }
+
+    // Interaction was already acknowledged somewhere
+    if (error?.code === 40060) {
+      console.warn("Ignored already acknowledged interaction (40060).");
+      return;
+    }
+
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({
+          content: "❌ Something went wrong while processing that.",
+          flags: 64
+        });
+      } else {
+        await interaction.reply({
+          content: "❌ Something went wrong while processing that.",
+          flags: 64
+        });
+      }
+    } catch (replyError) {
+      console.error("Could not send interaction error response:", replyError);
+    }
+  }
 });
+

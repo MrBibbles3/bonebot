@@ -32,7 +32,7 @@ const rarities = {
   EVENT: {
     name: "Event",
     color: 0xFC80CA,
-    emoji: "🌸"
+    emoji: "💫"
   },
    SPECIAL: {
     name: "Special",
