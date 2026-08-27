@@ -55,7 +55,6 @@ const AUTO_TIMEOUT_GUILD_ID = "1393315074235699200";
 
 const TIMEOUT_DAYS = [0, 1, 2, 3, 4, 5, 6]; // change these later
 const AUTO_TIMEOUT_CHANNEL_ID = "1471356531009130701";
-const TIMEOUT_GIF_URL = "https://64.media.tumblr.com/285f273bbf32402e59743b8b537467c3/658724bc37a236ad-ba/s500x750/87cd69565ad84da10db19409518ff2b56756545d.gif";
 const UNTIMEOUT_GIF_URL = "https://64.media.tumblr.com/37b16a41269575431099283449ca4f23/658724bc37a236ad-84/s500x750/9f8e9b3bdf4ecece7f860f93c13d71b186476547.gif;
 
 
@@ -136,7 +135,7 @@ function getBrisbaneDayNumber() {
 
 // 7:00 AM Brisbane time
 cron.schedule(
-  "10 20 * * *",
+  "23 20 * * *",
   async () => {
     if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
 
@@ -152,9 +151,13 @@ cron.schedule(
       const channel = await guild.channels.fetch(AUTO_TIMEOUT_CHANNEL_ID);
 
       if (channel && channel.isTextBased()) {
-        await channel.send({
-          content: `<@${AUTO_TIMEOUT_USER_ID}> has been sent to Jinjo Jail. 🔇\n${TIMEOUT_GIF_URL}`
-        });
+        await channel.send(
+          `<@${AUTO_TIMEOUT_USER_ID}> has been sent to Jinjo Jail. 🔇`
+        );
+
+        await channel.send(
+          "https://64.media.tumblr.com/285f273bbf32402e59743b8b537467c3/658724bc37a236ad-ba/s500x750/87cd69565ad84da10db19409518ff2b56756545d.gif"
+        );
       }
 
       console.log(`Bedtime for ${member.user.username}`);
@@ -170,7 +173,7 @@ cron.schedule(
 
 // 4:00 PM Brisbane time
 cron.schedule(
-  "12 20 * * *",
+  "25 20 * * *",
   async () => {
     if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
 
@@ -186,9 +189,13 @@ cron.schedule(
       const channel = await guild.channels.fetch(AUTO_TIMEOUT_CHANNEL_ID);
 
       if (channel && channel.isTextBased()) {
-        await channel.send({
-          content: `<@${AUTO_TIMEOUT_USER_ID}> is free from Jinjo Jail. 🔊\n${UNTIMEOUT_GIF_URL}`
-        });
+        await channel.send(
+          `<@${AUTO_TIMEOUT_USER_ID}> is free from Jinjo Jail. 🔊`
+        );
+
+        await channel.send(
+          "https://64.media.tumblr.com/37b16a41269575431099283449ca4f23/658724bc37a236ad-84/s500x750/9f8e9b3bdf4ecece7f860f93c13d71b186476547.gif"
+        );
       }
 
       console.log(`🔊 Automatically removed timeout from ${member.user.username}`);
