@@ -134,7 +134,7 @@ function getBrisbaneDayNumber() {
 
 // 7:00 AM Brisbane time
 cron.schedule(
-  "27 20 * * *",
+  "0 5 * * *",
   async () => {
     if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
 
@@ -155,7 +155,7 @@ cron.schedule(
         );
 
         await channel.send(
-          "https://64.media.tumblr.com/285f273bbf32402e59743b8b537467c3/658724bc37a236ad-ba/s500x750/87cd69565ad84da10db19409518ff2b56756545d.gif"
+          "https://64.media.tumblr.com/37b16a41269575431099283449ca4f23/658724bc37a236ad-84/s500x750/9f8e9b3bdf4ecece7f860f93c13d71b186476547.gif"
         );
       }
 
@@ -172,7 +172,7 @@ cron.schedule(
 
 // 4:00 PM Brisbane time
 cron.schedule(
-  "29 20 * * *",
+  "0 14 * * *",
   async () => {
     if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
 
@@ -193,7 +193,7 @@ cron.schedule(
         );
 
         await channel.send(
-          "https://64.media.tumblr.com/37b16a41269575431099283449ca4f23/658724bc37a236ad-84/s500x750/9f8e9b3bdf4ecece7f860f93c13d71b186476547.gif"
+          "https://64.media.tumblr.com/285f273bbf32402e59743b8b537467c3/658724bc37a236ad-ba/s500x750/87cd69565ad84da10db19409518ff2b56756545d.gif"
         );
       }
 
