@@ -55,7 +55,6 @@ const AUTO_TIMEOUT_GUILD_ID = "1393315074235699200";
 
 const TIMEOUT_DAYS = [0, 1, 2, 3, 4, 5, 6]; // change these later
 const AUTO_TIMEOUT_CHANNEL_ID = "1471356531009130701";
-const UNTIMEOUT_GIF_URL = "https://64.media.tumblr.com/37b16a41269575431099283449ca4f23/658724bc37a236ad-84/s500x750/9f8e9b3bdf4ecece7f860f93c13d71b186476547.gif;
 
 
 const client = new Client({
@@ -135,7 +134,7 @@ function getBrisbaneDayNumber() {
 
 // 7:00 AM Brisbane time
 cron.schedule(
-  "23 20 * * *",
+  "27 20 * * *",
   async () => {
     if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
 
@@ -173,7 +172,7 @@ cron.schedule(
 
 // 4:00 PM Brisbane time
 cron.schedule(
-  "25 20 * * *",
+  "29 20 * * *",
   async () => {
     if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
 
