@@ -42,7 +42,7 @@ const {startBoneDig, handleBoneDigButton} = require("./games/boneDigGame");
 const BONEDIG_BETS = [100, 200, 500];
 
 
-const AUTO_TIMEOUT_USER_ID = "1276408018891706494";
+const AUTO_TIMEOUT_USER_ID = "1499464330012266642";
 const AUTO_TIMEOUT_GUILD_ID = "1393315074235699200";
 
 // 0 = Sunday
