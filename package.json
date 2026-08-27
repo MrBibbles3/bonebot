@@ -17,6 +17,7 @@
     "dotenv": "^17.4.2",
     "mongodb": "4.1",
     "mongoose": "^9.2.0",
+    "node-cron": "^4.6.0",
     "sharp": "^0.35.2"
   }
 }

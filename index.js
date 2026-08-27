@@ -6,6 +6,7 @@ const {Client, REST, Routes, Partials, SlashCommandBuilder, PermissionFlagsBits,
 const cards = require('./data/cards');
 const rarities = require('./data/rarities');
 const User = require('./models/User');
+const cron = require("node-cron");
 let currentShopMessages = [];
 let shopEndTime = null;
 let countdownInterval = null;
@@ -40,6 +41,19 @@ const {startHigherLower, handleHigherLowerButton} = require("./games/higherLower
 const {startBoneDig, handleBoneDigButton} = require("./games/boneDigGame");
 const BONEDIG_BETS = [100, 200, 500];
 
+
+const AUTO_TIMEOUT_USER_ID = "1276408018891706494";
+const AUTO_TIMEOUT_GUILD_ID = "1393315074235699200";
+
+// 0 = Sunday
+// 1 = Monday
+// 2 = Tuesday
+// 3 = Wednesday
+// 4 = Thursday
+// 5 = Friday
+// 6 = Saturday
+
+const TIMEOUT_DAYS = [0, 1, 2, 3, 4, 5, 6]; // change these later
 
 
 const client = new Client({
@@ -95,6 +109,78 @@ client.once('clientReady', async () => {
     console.error("Shop boot error:", err);
   }
 });
+
+
+function getBrisbaneDayNumber() {
+  const day = new Date().toLocaleString("en-US", {
+    timeZone: "Australia/Brisbane",
+    weekday: "short"
+  });
+
+  const days = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6
+  };
+
+  return days[day];
+}
+
+
+// 7:00 AM Brisbane time
+cron.schedule(
+  "40 11 * * *",
+  async () => {
+    if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
+
+    try {
+      const guild = await client.guilds.fetch(AUTO_TIMEOUT_GUILD_ID);
+      const member = await guild.members.fetch(AUTO_TIMEOUT_USER_ID);
+
+      await member.timeout(
+        9 * 60 * 60 * 1000,
+        "Automatic scheduled timeout"
+      );
+
+      console.log(`Bedtime for ${member.user.username}`);
+    } catch (err) {
+      console.error("Automatic timeout failed:", err);
+    }
+  },
+  {
+    timezone: "Australia/Brisbane"
+  }
+);
+
+
+// 4:00 PM Brisbane time
+cron.schedule(
+  "0 16 * * *",
+  async () => {
+    if (!TIMEOUT_DAYS.includes(getBrisbaneDayNumber())) return;
+
+    try {
+      const guild = await client.guilds.fetch(AUTO_TIMEOUT_GUILD_ID);
+      const member = await guild.members.fetch(AUTO_TIMEOUT_USER_ID);
+
+      await member.timeout(
+        null,
+        "Automatic scheduled timeout ended"
+      );
+
+      console.log(`🔊 Automatically removed timeout from ${member.user.username}`);
+    } catch (err) {
+      console.error("Automatic untimeout failed:", err);
+    }
+  },
+  {
+    timezone: "Australia/Brisbane"
+  }
+);
 
 
 
