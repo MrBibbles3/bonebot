@@ -123,6 +123,21 @@ const userSchema = new mongoose.Schema({
         highLowMaxStreaks: { type: Number, default: 0 }
     },
 
+    recoverableStreak: {
+        type: Number,
+        default: 0
+    },
+
+        streakLostOn: {
+        type: String,
+        default: null
+    },
+
+        streakSaveWeek: {
+        type: String,
+        default: null
+    },
+
     inventory: [
     {
         itemId: String,

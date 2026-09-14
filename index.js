@@ -249,8 +249,6 @@ async function getOrCreateUser(userId, discordUser = null) {
     await user.save();
   }
 
-  await applyDailyTokenGrant(user, discordUser);
-
   return user;
 }
 
@@ -265,6 +263,10 @@ const commands = [
       .setDescription('User to view')
       .setRequired(false)
   ),
+
+  new SlashCommandBuilder()
+  .setName("savestreak")
+  .setDescription("Restore a recently lost daily streak. Available once per week."),
 
   new SlashCommandBuilder()
   .setName("achievements")
@@ -390,6 +392,23 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   }
 })();
 
+function getBrisbaneStreakSaveWeek() {
+  const brisbaneNow = new Date(
+    new Date().toLocaleString("en-US", {
+      timeZone: "Australia/Brisbane"
+    })
+  );
+
+  const day = brisbaneNow.getDay();
+
+  brisbaneNow.setDate(brisbaneNow.getDate() - day);
+
+  const year = brisbaneNow.getFullYear();
+  const month = String(brisbaneNow.getMonth() + 1).padStart(2, "0");
+  const date = String(brisbaneNow.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${date}`;
+}
 
 function buildPingsMessage(user, viewerId) {
   const pingEmbeds = [];
@@ -783,41 +802,7 @@ async function sendDailyResetPings(force = false) {
 }
 
 
-async function applyDailyTokenGrant(user, discordUser = null) {
-  const today = getBrisbaneToday();
 
-  if (user.lastGlobalTokenDaily === today) {
-    return user;
-  }
-
-  user.bibblesTokens = Math.min(
-    MAX_BIBBLES_TOKENS,
-    (user.bibblesTokens || 0) + DAILY_TOKEN_AMOUNT
-  );
-
-  user.lastGlobalTokenDaily = today;
-
-  if (
-    user.dailyPingEnabled &&
-    discordUser &&
-    user.lastDailyPingSent !== today
-  ) {
-    try {
-      await discordUser.send(
-        `<:BBones:1518220991938170910> **Daily Reset!**\n\n` +
-        `Your **/daily** reward is ready to claim!\n` +
-        `You received **+10 Bibbles Tokens**.`
-      );
-
-      user.lastDailyPingSent = today;
-    } catch (err) {
-      console.log(`Could not send daily ping to ${user.userId}: ${err.message}`);
-    }
-  }
-
-  await user.save();
-  return user;
-}
 
 async function spendBibblesToken(user) {
   if (user.bibblesTokens <= 0) {
@@ -1093,7 +1078,7 @@ async function showGamesMenu(interaction, user, useUpdate = false) {
     .setDescription(
       `Welcome to the BoneBot arcade!\n\n` +
       `<:BToken:1520541024978473100> **Game Tokens:** ${user.bibblesTokens}/${MAX_BIBBLES_TOKENS}\n` +
-      `⏳ **Next Token:** Gives +10 at "daily" reset time!\n\n` +
+      `⏳ **Next Token:** Gives +10 when using **/daily!**\n\n` +
       `Choose a game below:`
     )
     .addFields(
@@ -1435,6 +1420,15 @@ function getCardsForRarity(rarity) {
   }
 
   return cards[rarity] || [];
+}
+
+function getDaysBetween(date1, date2) {
+  const first = new Date(`${date1}T00:00:00Z`);
+  const second = new Date(`${date2}T00:00:00Z`);
+
+  return Math.floor(
+    (second - first) / (1000 * 60 * 60 * 24)
+  );
 }
 
 function getRarityDisplay(rarity) {
@@ -3353,6 +3347,78 @@ client.on('interactionCreate', async interaction => {
       return showGamesMenu(interaction, user);
     }
 
+    if (interaction.commandName === "savestreak") {
+      const user = await getOrCreateUser(
+        interaction.user.id,
+        interaction.user
+      );
+
+      const today = getBrisbaneToday();
+      const currentWeek = getBrisbaneStreakSaveWeek();
+
+      // Already used their streak save this week
+      if (user.streakSaveWeek === currentWeek) {
+        return interaction.reply({
+          content:
+            "🛡️ You've already used your **Streak Saver** this week!\n" +
+            "You'll get another one on **Sunday**.",
+          flags: 64
+        });
+      }
+
+      // No lost streak stored
+      if (!user.recoverableStreak || !user.streakLostOn) {
+        return interaction.reply({
+          content:
+            "❌ You don't have a recently lost streak to restore!",
+          flags: 64
+        });
+      }
+
+      const daysSinceLoss = getDaysBetween(
+        user.streakLostOn,
+        today
+      );
+
+      // More than 2 days have passed
+      if (daysSinceLoss > 2) {
+        user.recoverableStreak = 0;
+        user.streakLostOn = null;
+
+        await user.save();
+
+        return interaction.reply({
+          content:
+            "💔 Your lost streak is too old to recover.\n" +
+            "A Streak Saver can only restore a streak within **2 days** of losing it.",
+          flags: 64
+        });
+      }
+
+      const restoredStreak = user.recoverableStreak;
+
+      user.dailyStreak = restoredStreak;
+
+      // Your reward streak is capped at 30
+      user.cappedStreak = Math.min(30, restoredStreak);
+
+      // Mark this week's save as used
+      user.streakSaveWeek = currentWeek;
+
+      // Clear the stored recovery
+      user.recoverableStreak = 0;
+      user.streakLostOn = null;
+
+      await user.save();
+
+      return interaction.reply({
+        content:
+          `🛡️ **STREAK SAVED!**\n\n` +
+          `🔥 Your **${restoredStreak} day streak** has been restored!\n\n` +
+          `Your next Streak Saver will be available on **Sunday**.`
+      });
+    }
+
     if (interaction.commandName === "bbgiveaway") {
       if (!interaction.member.permissions.has("Administrator")) {
         return interaction.reply({
@@ -3539,6 +3605,8 @@ client.on('interactionCreate', async interaction => {
       }
       const maxStreak = 30;
 
+      let lostStreak = 0;
+
       if (user.dailyLastClaim) {
 
         // Missed streak window
@@ -3547,6 +3615,15 @@ client.on('interactionCreate', async interaction => {
         const yesterdayString = yesterday.toDateString();
 
         if (lastClaimDate !== today && lastClaimDate !== yesterdayString) {
+
+          // Save their old streak
+          if (user.dailyStreak > 1) {
+            lostStreak = user.dailyStreak;
+
+            user.recoverableStreak = user.dailyStreak;
+            user.streakLostOn = today;
+          }
+
           user.dailyStreak = 0;
           user.cappedStreak = 0;
         }
@@ -3562,6 +3639,12 @@ client.on('interactionCreate', async interaction => {
       //Add one to perma streak
       user.dailyStreak += 1;
 
+      // Give daily Bibbles Tokens
+      user.bibblesTokens = Math.min(
+        MAX_BIBBLES_TOKENS,
+        (user.bibblesTokens || 0) + DAILY_TOKEN_AMOUNT
+      );
+
       const baseReward = Math.floor(Math.random() * 21) + 90; // 90–110
       const streakBonus = user.cappedStreak * 15;
       const totalReward = baseReward + streakBonus;
@@ -3572,6 +3655,15 @@ client.on('interactionCreate', async interaction => {
 
       await user.save();
 
+      let streakLostMessage = "";
+
+      if (lostStreak > 0) {
+        streakLostMessage =
+          `\n\n💔 **Streak Lost!**\n` +
+          `Your **${lostStreak} day streak** was lost!\n` +
+          `🛡️ You can use **/savestreak** within **2 days** to restore it.`;
+      }
+
       return interaction.reply({
         content:
           `<:BBones:1520540942682030111> **Daily Claimed!**\n\n` +
@@ -3580,7 +3672,8 @@ client.on('interactionCreate', async interaction => {
           `Total Earned: \`${totalReward}\`\n\n` +
           `🔥 Current Streak: ${user.dailyStreak}/30\n\n` +
           `💰 **New Balance:** \`${user.bones}\`<:BBones:1520540942682030111>\n\n` +
-          `🎮 **10 Daily Game tokens given!**<:BToken:1520541024978473100>`,
+          `🎮 **10 Daily Game tokens given!**<:BToken:1520541024978473100>` +
+          streakLostMessage,
         flags: 64
       });
     }
@@ -4532,3 +4625,41 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+//deleted stuff
+
+/*
+async function applyDailyTokenGrant(user, discordUser = null) {
+  const today = getBrisbaneToday();
+
+  if (user.lastGlobalTokenDaily === today) {
+    return user;
+  }
+
+  user.bibblesTokens = Math.min(
+    MAX_BIBBLES_TOKENS,
+    (user.bibblesTokens || 0) + DAILY_TOKEN_AMOUNT
+  );
+
+  user.lastGlobalTokenDaily = today;
+
+  if (
+    user.dailyPingEnabled &&
+    discordUser &&
+    user.lastDailyPingSent !== today
+  ) {
+    try {
+      await discordUser.send(
+        `<:BBones:1518220991938170910> **Daily Reset!**\n\n` +
+        `Your **daily** reward is ready to claim!\n` +
+        `You received **+10 Bibbles Tokens**.`
+      );
+
+      user.lastDailyPingSent = today;
+    } catch (err) {
+      console.log(`Could not send daily ping to ${user.userId}: ${err.message}`);
+    }
+  }
+
+  await user.save();
+  return user;
+}*/
