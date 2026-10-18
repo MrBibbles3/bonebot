@@ -3458,7 +3458,7 @@ client.on('interactionCreate', async interaction => {
         });
       }
 
-      await interaction.deferReply({ flags: 64 });
+      await interaction.deferReply();
 
       const targetUser = interaction.options.getUser("user");
 
