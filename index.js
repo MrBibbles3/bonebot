@@ -279,6 +279,16 @@ const commands = [
   ),
 
   new SlashCommandBuilder()
+  .setName("subscribe")
+  .setDescription("Give a user the Special Entry role.")
+  .addUserOption(option =>
+    option
+      .setName("user")
+      .setDescription("The user to subscribe")
+      .setRequired(true)
+  ),
+
+  new SlashCommandBuilder()
     .setName("bbgiveaway")
     .setDescription("Add Giveaway King value to a user")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
@@ -2669,7 +2679,10 @@ client.on('interactionCreate', async interaction => {
   ) return;
 
   // Only allow interactions in specific channels
-  if (!ALLOWED_CHANNELS.includes(interaction.channelId)) {
+  if (
+    interaction.commandName !== "subscribe" &&
+    !ALLOWED_CHANNELS.includes(interaction.channelId)
+  ) {
 
     if (interaction.replied || interaction.deferred) {
       return;
@@ -3417,6 +3430,70 @@ client.on('interactionCreate', async interaction => {
           `🔥 Your **${restoredStreak} day streak** has been restored!\n\n` +
           `Your next Streak Saver will be available on **Sunday**.`
       });
+    }
+
+    // =====================================================
+    // SUBSCRIBE COMMAND
+    // =====================================================
+    if (interaction.commandName === "subscribe") {
+
+      const MOD_ROLE_ID = "1464528588962271344";
+      const SPECIAL_ENTRY_ROLE_ID = "1512431930606358699";
+
+      // Server only
+      if (!interaction.inGuild()) {
+        return interaction.reply({
+          content: "❌ This command can only be used in a server.",
+          flags: 64
+        });
+      }
+
+      // Check moderator role
+      const moderator = await interaction.guild.members.fetch(interaction.user.id);
+
+      if (!moderator.roles.cache.has(MOD_ROLE_ID)) {
+        return interaction.reply({
+          content: "❌ You don't have permission to use this command.",
+          flags: 64
+        });
+      }
+
+      await interaction.deferReply({ flags: 64 });
+
+      const targetUser = interaction.options.getUser("user");
+
+      try {
+        const targetMember = await interaction.guild.members.fetch(targetUser.id);
+
+        // Already subscribed
+        if (targetMember.roles.cache.has(SPECIAL_ENTRY_ROLE_ID)) {
+          return interaction.editReply({
+            content: `⚠️ ${targetUser} already has the **Special Entry** role!`
+          });
+        }
+
+        // Give Special Entry role
+        await targetMember.roles.add(
+          SPECIAL_ENTRY_ROLE_ID,
+          `Subscribed by ${interaction.user.username}`
+        );
+
+        return interaction.editReply({
+          content:
+            `✅ **Subscription Successful!**\n\n` +
+            `👤 **User:** ${targetUser}\n` +
+            `🎟️ **Role Given:** Special Entry\n` +
+            `🛡️ **Moderator:** ${interaction.user}`
+        });
+
+      } catch (error) {
+        console.error("Subscribe command error:", error);
+
+        return interaction.editReply({
+          content:
+            "❌ Failed to subscribe that user. Check that they're in the server and that BoneBot has permission to manage the Special Entry role."
+        });
+      }
     }
 
     if (interaction.commandName === "bbgiveaway") {
